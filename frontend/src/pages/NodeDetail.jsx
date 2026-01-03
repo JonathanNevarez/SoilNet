@@ -7,6 +7,7 @@ import { Droplet, Activity, Cpu, BatteryFull, Radio, AlertTriangle, } from "luci
 import { getLastReadingByNode, getReadingsHistory } from "../services/readings.service";
 import { getNodeById } from "../services/nodes.service";
 import { computeNodeAlerts } from "../utils/nodeAlerts";
+import { getSoilStatus, getSignalStatus, getBatteryStatus, getRecommendedAction } from "../utils/nodeLogic";
 
 /**
  * @file NodeDetail.jsx
@@ -91,24 +92,18 @@ export default function NodeDetail() {
     );
   }
 
-  // --- Lógica de Estado del Cultivo (basado en la humedad) ---
+  // --- Procesamiento de Lógica de Negocio (Centralizada en nodeLogic.js) ---
   const humidity = lastReading?.humidity_percent ?? null;
+  const rssi = lastReading?.rssi ?? null;
+  const voltage = lastReading?.voltage ?? null;
 
-  let state = "ÓPTIMO";
-  let stateColor = "text-green-700";
-
-  if (humidity !== null) {
-    if (humidity < 30) {
-      state = "SECO";
-      stateColor = "text-red-600";
-    } else if (humidity < 50) {
-      state = "MEDIO";
-      stateColor = "text-yellow-600";
-    }
-  }
+  // 1. Obtener estados individuales
+  const soilStatus = getSoilStatus(humidity, node?.soil_type);
+  const signalStatus = getSignalStatus(rssi);
+  const batteryStatus = getBatteryStatus(voltage);
 
   // --- Lógica de Alertas del Nodo (basado en la última lectura) ---
-  const alerts = computeNodeAlerts(lastReading);
+  const alerts = computeNodeAlerts(lastReading, node?.soil_type);
   // Ordena las alertas para mostrar las más peligrosas primero.
   const sortedAlerts = [...alerts].sort((a, b) => {
     const priority = { danger: 0, warning: 1 };
@@ -118,58 +113,14 @@ export default function NodeDetail() {
   // Si después de cargar, el nodo no existe, muestra un mensaje.
   if (!node) return <p className="text-center mt-10">Nodo no encontrado</p>;
 
-  // --- Lógica de Salud del Nodo (Conexión, Señal, Batería) ---
-  // Determina si el nodo está en línea comparando la última lectura con el intervalo de muestreo.
+  // 2. Calcular estado de conexión (Online/Offline)
   const now = Date.now();
   const lastTime = lastReading?.createdAt ? new Date(lastReading.createdAt).getTime() : null;
   const intervalMs = (lastReading?.sampling_interval ?? 5) * 1000;
-
-  // Determina si el nodo está en línea comparando la última lectura con el intervalo de muestreo.
   const online = lastTime && now - lastTime < intervalMs * 2;
 
-  let signalLabel = "Buena"; // Calidad de la señal (RSSI).
-  let signalColor = "text-green-600";
-
-  if (lastReading?.rssi < -85) {
-    signalLabel = "Mala";
-    signalColor = "text-red-600";
-  } else if (lastReading?.rssi < -70) {
-    signalLabel = "Regular";
-    signalColor = "text-yellow-600";
-  }
-
-  let batteryLabel = "Buena"; // Estado de la batería (Voltaje).
-  let batteryColor = "text-green-600";
-
-  if (lastReading?.voltage < 2.5) {
-    batteryLabel = "Muy baja";
-    batteryColor = "text-red-600";
-  } else if (lastReading?.voltage < 3.3) {
-    batteryLabel = "Baja";
-    batteryColor = "text-yellow-600";
-  }
-
-  // --- Lógica de Acciones Recomendadas (basado en la prioridad de los problemas) ---
-  let actionTitle = "Todo en orden";
-  let actionMessage = "El cultivo se encuentra en buenas condiciones.";
-  let actionColor = "bg-green-50 border-green-300 text-green-700";
-
-  // La prioridad de las acciones es: 1. Sin conexión, 2. Batería muy baja, 3. Suelo seco.
-  if (!online) {
-    actionTitle = "Sensor sin comunicación";
-    actionMessage = "El equipo no está enviando datos. Revise el sensor.";
-    actionColor = "bg-red-50 border-red-300 text-red-700";
-  } 
-  else if (batteryLabel === "Muy baja") {
-    actionTitle = "Batería baja";
-    actionMessage = "Recargue el sensor para evitar pérdida de datos.";
-    actionColor = "bg-orange-50 border-orange-300 text-orange-700";
-  } 
-  else if (humidity !== null && humidity < 30) {
-    actionTitle = "Suelo seco";
-    actionMessage = "Se recomienda realizar riego en el cultivo.";
-    actionColor = "bg-orange-50 border-orange-300 text-orange-700";
-  }
+  // 3. Determinar acción recomendada final
+  const action = getRecommendedAction(online, batteryStatus.label, soilStatus);
 
   /**
    * Formatea el tick del eje X del gráfico según el rango de tiempo.
@@ -206,7 +157,7 @@ export default function NodeDetail() {
         </div>
         <p className="font-semibold">
           <span className="text-gray-600">Estado:</span>{" "}
-          <span className={stateColor}>{state}</span>
+          <span className={soilStatus.color}>{soilStatus.label}</span>
         </p>
       </div>
 
@@ -282,18 +233,18 @@ export default function NodeDetail() {
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <Radio size={16} className={signalColor} />
+          <Radio size={16} className={signalStatus.color} />
           <span>
             Conexión del sensor:
-            <b className={`ml-1 ${signalColor}`}>{signalLabel}</b>
+            <b className={`ml-1 ${signalStatus.color}`}>{signalStatus.label}</b>
           </span>
         </div>
 
         <div className="flex items-center gap-2 text-sm">
-          <BatteryFull size={16} className={batteryColor} />
+          <BatteryFull size={16} className={batteryStatus.color} />
           <span>
             Energía del sensor:
-            <b className={`ml-1 ${batteryColor}`}>{batteryLabel}</b>
+            <b className={`ml-1 ${batteryStatus.color}`}>{batteryStatus.label}</b>
           </span>
         </div>
       </div>
@@ -326,12 +277,12 @@ export default function NodeDetail() {
         </div>
       )}
 
-      <div className={`border-l-4 rounded-xl p-4 shadow ${actionColor}`}>
+      <div className={`border-l-4 rounded-xl p-4 shadow ${action.color}`}>
         <h3 className="font-semibold text-sm mb-1">
           Acción recomendada
         </h3>
-        <p className="font-bold text-base">{actionTitle}</p>
-        <p className="text-sm mt-1">{actionMessage}</p>
+        <p className="font-bold text-base">{action.title}</p>
+        <p className="text-sm mt-1">{action.message}</p>
       </div>
 
       <details className="bg-white rounded-xl shadow p-4">

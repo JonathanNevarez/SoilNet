@@ -47,8 +47,8 @@ export default function AlertsPanel({ alerts }) {
               </div>
             </div>
 
-            <span className="text-sm font-semibold text-red-600">
-              {a.state}
+            <span className={`text-sm font-semibold ${a.soilStatus.color}`}>
+              {a.soilStatus.label}
             </span>
           </div>
         ))}

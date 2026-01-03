@@ -120,7 +120,7 @@ export default function Profile() {
           Monitoreo IoT de Humedad del Suelo
         </p>
         <p className="text-xs text-gray-400">
-          SoilNet · v1.0.0
+          SoilNet
         </p>
       </div>
 

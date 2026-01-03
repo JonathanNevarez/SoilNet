@@ -82,6 +82,9 @@ Follow these steps to run the project locally:
 
 ## <img src="https://api.iconify.design/mdi/cloud-outline.svg?color=%234f997e" width="20" style="vertical-align: text-bottom;"/> Deployment
 
+The frontend of the application is deployed and accessible at:
+<img src="https://api.iconify.design/mdi/web.svg?color=%234f997e" width="20" style="vertical-align: text-bottom;"/> **[wikiclone.info](https://wikiclone.info)**
+
 The project is designed to be deployed as two separate services:
 
 *   **Backend (API)**: Deployed on a service like **Render**.

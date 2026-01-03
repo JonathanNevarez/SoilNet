@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Droplet, Wifi, AlertTriangle } from "lucide-react";
+import { getSignalStatus } from "../../utils/nodeLogic";
 
 /**
  * Tarjeta individual que muestra el resumen de un nodo.
@@ -21,17 +22,8 @@ export default function NodeCard({ node }) {
   const statusText = online ? "Activo" : "Sin señal";
 
   // --- Lógica de Calidad de Señal ---
-  // Clasifica la calidad de la señal (RSSI) en tres niveles.
-  let signalText = "Buena";
-  let signalColor = "text-green-600";
-
-  if (rssi < -85) {
-    signalText = "Débil";
-    signalColor = "text-red-600";
-  } else if (rssi < -70) {
-    signalText = "Media";
-    signalColor = "text-yellow-600";
-  }
+  // Usamos la lógica centralizada
+  const signalStatus = getSignalStatus(rssi);
 
   // --- Lógica de Alertas ---
   // Cambia el color del texto si el número de alertas es alto.
@@ -82,9 +74,9 @@ export default function NodeCard({ node }) {
         </span>
       </div>
 
-      <div className={`flex items-center gap-1 ${signalColor}`}>
+      <div className={`flex items-center gap-1 ${signalStatus.color}`}>
         <Wifi size={14} />
-        {signalText}
+        {signalStatus.label}
       </div>
 
       {alertsCount > 0 && (

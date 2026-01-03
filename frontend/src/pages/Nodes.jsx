@@ -39,7 +39,7 @@ export default function Nodes() {
             if (!lastReading) return node;
 
             // Calcula alertas y estado de conexión basado en la última lectura.
-            const alerts = computeNodeAlerts(lastReading);
+            const alerts = computeNodeAlerts(lastReading, node.soil_type);
 
             const lastTime = lastReading.createdAt ? new Date(lastReading.createdAt) : null;
             const intervalMs = (lastReading.sampling_interval ?? 5) * 1000;

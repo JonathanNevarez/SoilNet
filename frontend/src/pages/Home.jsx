@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Sprout, AlertTriangle, DropletOff  } from "lucide-react";
+import { Sprout, AlertTriangle, DropletOff, Droplets } from "lucide-react";
 import { getCurrentUser } from "../services/authService";
 import { getUserNodes } from "../services/nodes.service";
 import { getLastReadingByNode } from "../services/readings.service";
+import { getSoilStatus } from "../utils/nodeLogic";
 import SummaryPanel from "../components/home/SummaryPanel";
 import AlertsPanel from "../components/home/AlertsPanel";
 import NodeGrid from "../components/home/NodeGrid";
@@ -67,41 +68,37 @@ export default function Home() {
     const humidity =
       node.lastReading?.humidity_percent ??
       node.lastReading?.humidity ??
-      0;
+      null;
 
-    let state = "OPTIMO";
-    let recommendation = "Sin acción";
+    // Usamos la lógica centralizada que considera el tipo de suelo
+    const soilStatus = getSoilStatus(humidity, node.soil_type);
 
-    if (humidity <= 30) {
-      state = "SECO";
-      recommendation = "Regar ahora";
-    } else if (humidity <= 60) {
-      state = "MEDIO";
-      recommendation = "Vigilar";
-    }
-
-    return { ...node, humidity, state, recommendation };
+    return { ...node, humidity, soilStatus };
   });
 
   // --- Cálculo de KPIs y Estado Global ---
   const total = processedNodes.length;
-  const sum = processedNodes.reduce((acc, n) => acc + n.humidity, 0);
+  const sum = processedNodes.reduce((acc, n) => acc + (n.humidity || 0), 0);
   const averageHumidity = total ? Math.round(sum / total) : 0;
-  const criticalCount = processedNodes.filter(n => n.state === "SECO").length;
+  
+  // Contamos como críticos los nodos en estado SECO
+  const dryCount = processedNodes.filter(n => n.soilStatus.stateCode === "DRY").length;
+  const excessCount = processedNodes.filter(n => n.soilStatus.stateCode === "EXCESS").length;
 
   // Determina el estado global del sistema basado en los nodos críticos y en estado medio.
-  let globalStatus = "OPTIMO";
-  let statusColor = "text-green-700";
+  let globalStatus = "ÓPTIMO";
+  // let statusColor = "text-green-700"; // (Variable no usada directamente en el renderizado actual, se usa lógica inline abajo)
 
-  if (criticalCount > 0) {
+  if (dryCount > 0) {
     globalStatus = "SECO";
-    statusColor = "text-red-600";
-  } else if (processedNodes.some(n => n.state === "MEDIO")) {
+  } else if (excessCount > 0) {
+    globalStatus = "EXCESO";
+  } else if (processedNodes.some(n => n.soilStatus.stateCode === "MEDIUM")) {
     globalStatus = "MEDIO";
-    statusColor = "text-yellow-600";
   }
 
-  const alerts = processedNodes.filter(n => n.state !== "OPTIMO");
+  // Filtramos alertas para el panel (cualquier cosa que no sea ÓPTIMO)
+  const alerts = processedNodes.filter(n => n.soilStatus.stateCode !== "OPTIMAL");
 
   return (
     
@@ -110,10 +107,12 @@ export default function Home() {
       <div
         className={`rounded-2xl shadow p-6 flex items-center gap-6
           ${
-            globalStatus === "OPTIMO"
+            globalStatus === "ÓPTIMO"
               ? "bg-green-50/60"
               : globalStatus === "MEDIO"
               ? "bg-yellow-50/60"
+              : globalStatus === "EXCESO"
+              ? "bg-blue-50/60"
               : "bg-red-50/60"
           }
         `}
@@ -121,15 +120,18 @@ export default function Home() {
         <div
           className={`w-14 h-14 flex items-center justify-center rounded-full
             ${
-              globalStatus === "OPTIMO"
+              globalStatus === "ÓPTIMO"
                 ? "bg-green-100 text-green-700"
                 : globalStatus === "MEDIO"
                 ? "bg-yellow-100 text-yellow-700"
+                : globalStatus === "EXCESO"
+                ? "bg-blue-100 text-blue-700"
                 : "bg-red-100 text-red-700"
             }`}
         >
-          {globalStatus === "OPTIMO" && <Sprout size={28} />}
+          {globalStatus === "ÓPTIMO" && <Sprout size={28} />}
           {globalStatus === "MEDIO" && <AlertTriangle size={28} />}
+          {globalStatus === "EXCESO" && <Droplets size={28} />}
           {globalStatus === "SECO" && <DropletOff size={28} />}
         </div>
 
@@ -141,10 +143,12 @@ export default function Home() {
           <p
             className={`text-3xl font-extrabold mt-1
               ${
-                globalStatus === "OPTIMO"
+                globalStatus === "ÓPTIMO"
                   ? "text-green-700"
                   : globalStatus === "MEDIO"
                   ? "text-yellow-700"
+                  : globalStatus === "EXCESO"
+                  ? "text-blue-700"
                   : "text-red-700"
               }
             `}
@@ -153,10 +157,12 @@ export default function Home() {
           </p>
 
           <p className="text-sm text-gray-600 mt-1">
-            {globalStatus === "OPTIMO" &&
+            {globalStatus === "ÓPTIMO" &&
               "Todo está en buen estado, no se requiere acción"}
             {globalStatus === "MEDIO" &&
               "Algunas zonas deben ser vigiladas"}
+            {globalStatus === "EXCESO" &&
+              "Riesgo de saturación en algunos nodos"}
             {globalStatus === "SECO" &&
               "Se recomienda regar inmediatamente"}
           </p>
@@ -168,7 +174,7 @@ export default function Home() {
         <div className="w-full max-w-3xl">
           <SummaryPanel
             averageHumidity={averageHumidity}
-            criticalCount={criticalCount}
+            criticalCount={dryCount + excessCount}
           />
         </div>
       </div>

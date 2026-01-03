@@ -446,6 +446,13 @@ export default function Admin() {
                       </div>
 
                       <p className="text-sm text-gray-600">
+                        Suelo: <span className="font-medium">
+                          {n.soil_type === 'SANDY' ? 'Arenoso' : 
+                           n.soil_type === 'CLAY' ? 'Arcilloso' : 'Franco'}
+                        </span>
+                      </p>
+
+                      <p className="text-sm text-gray-600">
                         Usuario: <span className="font-medium">
                           {n.ownerName || "-"}
                         </span>
@@ -505,6 +512,7 @@ export default function Admin() {
                         <th className="px-3 py-2">ID</th>
                         <th className="px-3 py-2">Nombre</th>
                         <th className="px-3 py-2">Estado</th>
+                        <th className="px-3 py-2">Suelo</th>
                         <th className="px-3 py-2">Usuario</th>
                         <th className="px-3 py-2">Acciones</th>
                       </tr>
@@ -527,6 +535,10 @@ export default function Admin() {
                             >
                               {n.assigned ? "Asignado" : "Libre"}
                             </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {n.soil_type === 'SANDY' ? 'Arenoso' : 
+                             n.soil_type === 'CLAY' ? 'Arcilloso' : 'Franco'}
                           </td>
                           <td className="px-3 py-2">
                             {n.ownerName || "-"}

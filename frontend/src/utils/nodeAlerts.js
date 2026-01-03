@@ -4,30 +4,48 @@ import { WifiOff, DropletOff, SignalLow } from "lucide-react";
  * Genera un array de alertas basado en los valores de la última lectura de un nodo.
  *
  * @param {object|null} lastReading - Objeto con la última lectura del sensor.
+ * @param {string} [soilType='LOAM'] - Tipo de suelo del nodo (SANDY, LOAM, CLAY).
  * @returns {Array<{type: 'danger'|'warning', text: string, icon: React.Component}>}
  *          Un array de objetos de alerta, cada uno con tipo, texto e icono.
  */
-export function computeNodeAlerts(lastReading) {
+export function computeNodeAlerts(lastReading, soilType = 'LOAM') {
   const alerts = [];
 
   if (!lastReading) return alerts;
 
-  // --- Alerta de Humedad Crítica (Suelo Seco) ---
-  // Se activa si la humedad es inferior al 25%.
-  if (lastReading.humidity_percent < 25) {
+  const humidity = lastReading.humidity_percent;
+
+  // Definición de umbrales por tipo de suelo
+  const thresholds = {
+    SANDY: { dry: 10, optimal_min: 20, excess: 30 },
+    LOAM:  { dry: 15, optimal_min: 30, excess: 40 },
+    CLAY:  { dry: 25, optimal_min: 40, excess: 50 }
+  };
+
+  // Seleccionar umbrales según el tipo de suelo (default a LOAM si no coincide)
+  const t = thresholds[soilType] || thresholds.LOAM;
+
+  // --- Alerta de Humedad Crítica (SECO) ---
+  if (humidity < t.dry) {
     alerts.push({
       type: "danger",
-      text: "Humedad crítica: suelo muy seco",
+      text: `Suelo muy seco: Riego urgente`,
       icon: DropletOff
     });
   }
-
+  // --- Alerta de Nivel Medio (Requiere vigilancia) ---
+  else if (humidity >= t.dry && humidity < t.optimal_min) {
+    alerts.push({
+      type: "warning",
+      text: `Humedad baja: Requiere vigilancia`,
+      icon: DropletOff
+    });
+  }
   // --- Alerta de Exceso de Humedad ---
-  // Se activa si la humedad supera el 85%, indicando posible saturación.
-  if (lastReading.humidity_percent > 85) {
+  else if (humidity > t.excess) {
     alerts.push({
       type: "danger",
-      text: "Exceso de humedad detectado",
+      text: `Exceso de humedad: Riesgo de saturación`,
       icon: DropletOff
     });
   }

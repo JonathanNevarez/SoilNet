@@ -19,19 +19,20 @@ export default function NodeGrid({ nodes }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {nodes.map((n) => (
+        {nodes.map((n) => {
+          // Determinar color del borde basado en el estado
+          let borderColor = "border-gray-300";
+          if (n.soilStatus.stateCode === "DRY") borderColor = "border-red-500";
+          else if (n.soilStatus.stateCode === "MEDIUM") borderColor = "border-yellow-400";
+          else if (n.soilStatus.stateCode === "OPTIMAL") borderColor = "border-green-500";
+          else if (n.soilStatus.stateCode === "EXCESS") borderColor = "border-blue-500";
+
+          return (
           <Link
             to={`/nodos/${encodeURIComponent(n.nodeId)}`}
             key={n.nodeId}
             className={`block bg-white rounded-2xl shadow-sm p-5 space-y-3 hover:shadow-md transition
-              ${
-                n.state === "SECO"
-                  ? "border-l-4 border-red-500"
-                  : n.state === "MEDIO"
-                  ? "border-l-4 border-yellow-400"
-                  : "border-l-4 border-green-500"
-              }
-            `}
+              border-l-4 ${borderColor}`}
           >
             <h4 className="font-semibold text-lg text-gray-800">
               {n.name}
@@ -39,25 +40,21 @@ export default function NodeGrid({ nodes }) {
 
             <div className="flex items-center gap-2 text-gray-600">
               <Droplets size={16} />
-              <span>Humedad: <strong>{n.humidity}%</strong></span>
+              <span>Humedad: <strong>{n.humidity !== null ? `${n.humidity}%` : "—"}</strong></span>
             </div>
 
             <div className="flex items-center gap-2 text-gray-600">
               <Activity size={16} />
-              <span>Estado: <strong>{n.state}</strong></span>
+              <span>Estado: <strong className={n.soilStatus.color}>{n.soilStatus.label}</strong></span>
             </div>
 
             <div
-              className={`inline-block px-3 py-1 rounded-full text-sm font-medium
-                ${n.state === "SECO" && "bg-red-100 text-red-600"}
-                ${n.state === "MEDIO" && "bg-yellow-100 text-yellow-700"}
-                ${n.state === "OPTIMO" && "bg-green-100 text-green-700"}
-              `}
+              className={`inline-block px-3 py-1 rounded-full text-sm font-medium border ${n.soilStatus.actionColor}`}
             >
-              {n.recommendation}
+              {n.soilStatus.title}
             </div>
           </Link>
-        ))}
+        )})}
       </div>
     </div>
   );
