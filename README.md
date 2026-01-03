@@ -10,6 +10,7 @@
 *   **Interactive Dashboard**: Get a quick overview of your system's health with calculated KPIs and status indicators (Optimal, Warning, Critical).
 *   **Historical Data**: Visualize trends over time with interactive charts (24h, 7 days, 30 days).
 *   **Machine Learning Predictions**: A predictive simulator estimates future soil moisture based on current sensor data.
+*   **AI Assistant**: An intelligent chatbot powered by LLaMA 3 (via Groq) that analyzes real-time sensor data to answer questions, provide agronomic advice, and summarize system status.
 *   **Automated Model Re-training**: A weekly cron job automatically re-trains the ML model with the latest data to maintain prediction accuracy.
 *   **Smart Alerts**: Receive automatic notifications for critical events like low humidity, weak signal, or sensor inactivity.
 *   **Admin Panel**: Comprehensive management system for administrators to create users, register nodes, and assign devices.
@@ -24,6 +25,7 @@
 *   **Database**: MongoDB
 *   **Authentication**: JWT (JSON Web Tokens)
 *   **Machine Learning**: Python, Scikit-learn, Pandas, LightGBM
+*   **AI Integration**: Groq SDK, LLaMA 3
 
 ## <img src="https://api.iconify.design/mdi/package-variant-closed.svg?color=%234f997e" width="20" style="vertical-align: text-bottom;"/> Installation
 
@@ -51,6 +53,7 @@ Follow these steps to run the project locally:
     PORT=3000
     MONGO_URI=YOUR_MONGODB_CONNECTION_STRING
     JWT_SECRET=YOUR_SUPER_SECRET_KEY_FOR_JWT
+    GROQ_API_KEY=YOUR_GROQ_API_KEY
     ```
     Start the server:
     ```bash

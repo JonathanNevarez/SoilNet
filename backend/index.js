@@ -22,6 +22,7 @@ const jwt = require("jsonwebtoken");
 const Reading = require('./models/Reading');
 const User = require('./models/User');
 const Node = require('./models/Node');
+const { generateSoilAnalysis } = require('./services/aiService');
 
 // =============================================================================
 // CONFIGURACIÓN DE LA APP
@@ -762,6 +763,44 @@ app.post("/api/predict", (req, res) => {
       res.status(500).json({ error: "Respuesta inválida del modelo" });
     }
   });
+});
+
+/**
+ * Endpoint para el Asistente IA (SoilNet AI Assistant).
+ * Analiza datos del nodo y responde preguntas usando Groq.
+ * Requiere autenticación.
+ * @route POST /api/ai/assistant
+ * @param {string} req.body.nodeId - ID del nodo sobre el que se consulta.
+ * @param {string} req.body.question - Pregunta del usuario.
+ */
+app.post("/api/ai/assistant", authenticateToken, async (req, res) => {
+  try {
+    const { nodeId, question } = req.body;
+
+    if (!question) {
+      return res.status(400).json({ error: "Falta la pregunta" });
+    }
+
+    // Si se proporciona un nodeId, verificamos permisos específicos
+    if (nodeId) {
+      const node = await Node.findOne({ nodeId });
+      if (!node) {
+        return res.status(404).json({ error: "Nodo no encontrado" });
+      }
+
+      if (req.user.role !== 'admin' && String(node.ownerUid) !== String(req.user.uid)) {
+        return res.status(403).json({ error: "No tienes permiso para consultar este nodo" });
+      }
+    }
+
+    // Pasamos el UID del usuario para contexto global si no hay nodeId
+    const answer = await generateSoilAnalysis(nodeId, question, req.user.uid);
+    res.json({ answer });
+
+  } catch (error) {
+    console.error("Error en SoilNet AI:", error);
+    res.status(500).json({ error: "Error al procesar la consulta con IA" });
+  }
 });
 
 

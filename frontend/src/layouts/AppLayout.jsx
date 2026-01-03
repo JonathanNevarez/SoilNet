@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import BottomNav from "../components/layout/BottomNav";
+import SoilNetAssistant from "../components/ai/SoilNetAssistant";
 
 /**
  * Layout principal para las páginas de usuario.
@@ -10,6 +11,7 @@ export default function AppLayout() {
   return (
     <div className="min-h-screen pb-16 bg-slate-100">
       <Outlet />
+      <SoilNetAssistant />
       <BottomNav />
     </div>
   );
