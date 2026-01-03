@@ -5,6 +5,12 @@ const nodeSchema = new mongoose.Schema({
   name: { type: String, required: true },
   location: String,
 
+  soil_type: {
+    type: String,
+    enum: ['SANDY', 'LOAM', 'CLAY'],
+    default: 'LOAM',
+    required: true
+  },
   assigned: { type: Boolean, default: false },
   ownerUid: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   ownerName: String,

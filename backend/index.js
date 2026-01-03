@@ -208,7 +208,7 @@ app.post("/admin/create-user", async (req, res) => {
  * @param {string} [req.body.location] - La ubicación física del nodo (opcional).
  */
 app.post("/admin/create-node", async (req, res) => {
-  const { nodeId, name, location } = req.body;
+  const { nodeId, name, location, soil_type } = req.body;
 
   if (!nodeId || !name) {
     return res.status(400).json({ error: "Datos incompletos" });
@@ -224,6 +224,7 @@ app.post("/admin/create-node", async (req, res) => {
       nodeId,
       name,
       location: location || null,
+      soil_type: soil_type || 'LOAM',
       assigned: false,
       ownerUid: null,
       ownerName: null,
@@ -380,12 +381,13 @@ app.put("/admin/update-user/:uid", async (req, res) => {
  */
 app.put("/admin/update-node/:nodeId", async (req, res) => {
   const { nodeId } = req.params;
-  const { name, location } = req.body;
+  const { name, location, soil_type } = req.body;
 
   try {
     await Node.findOneAndUpdate({ nodeId }, {
       name,
       location: location || null,
+      soil_type: soil_type || 'LOAM',
       updatedAt: new Date()
     });
 
