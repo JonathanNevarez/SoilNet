@@ -1,6 +1,8 @@
 {
-    "rmse_mean": 0.0,
-    "rmse_std": 0.0,
-    "training_timestamp": "2025-12-30T18:07:15.926553",
-    "training_samples": 40918
+    "rmse_mean": 3.7580901464011247,
+    "rmse_std": 0.016936305491703208,
+    "training_timestamp": "2026-01-03T18:18:43.294412",
+    "training_samples": 86396,
+    "model_path": "C:\\Users\\Alexxxjon\\OneDrive\\Desktop\\SoilNet\\backend\\ml\\models\\humidity_regressor.pkl",
+    "data_path": "C:\\Users\\Alexxxjon\\OneDrive\\Desktop\\SoilNet\\backend\\ml\\in\\soil_readings.csv"
 }

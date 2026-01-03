@@ -3,7 +3,7 @@
  */
 
 // Ajusta la URL base según tu configuración de Vite (normalmente en .env)
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/';
 
 /**
  * Envía una pregunta al asistente sobre un nodo específico.
@@ -14,7 +14,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
  */
 export const askSoilNetAI = async (nodeId, question, token) => {
   try {
-    const response = await fetch(`${API_URL}/ai/assistant`, {
+    const response = await fetch(`${API_URL}api/ai/assistant`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
