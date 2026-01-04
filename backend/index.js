@@ -565,6 +565,54 @@ app.get("/api/nodes/:nodeId", async (req, res) => {
 });
 
 /**
+ * Obtiene métricas de latencia del sistema para análisis de rendimiento.
+ * Calcula la latencia como: createdAt - sensor_timestamp.
+ * Requiere autenticación.
+ * @route GET /api/readings/latency
+ * @param {number} [req.query.period] - Periodo en minutos (default: 15).
+ */
+app.get("/api/readings/latency", authenticateToken, async (req, res) => {
+  try {
+    const { uid } = req.user;
+    const periodMinutes = parseInt(req.query.period, 10) || 15;
+    const startDate = new Date(Date.now() - periodMinutes * 60 * 1000);
+
+    // 1. Obtener los IDs de los nodos asignados al usuario actual
+    const userNodes = await Node.find({ ownerUid: uid }).select('nodeId');
+    
+    if (!userNodes || userNodes.length === 0) {
+      return res.json([]);
+    }
+
+    const nodeIds = userNodes.map(n => n.nodeId);
+
+    // 2. Ejecutar Aggregation Pipeline para calcular latencia en la DB
+    const latencyData = await Reading.aggregate([
+      {
+        $match: {
+          node_id: { $in: nodeIds },      // Solo lecturas de mis nodos
+          createdAt: { $gte: startDate }  // Solo dentro del periodo
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          createdAt: 1,
+          latency_ms: { $subtract: ["$createdAt", "$sensor_timestamp"] }
+        }
+      },
+      { $sort: { createdAt: 1 } }
+    ]);
+
+    res.json(latencyData);
+
+  } catch (error) {
+    console.error("Error calculando latencia:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Obtiene la lectura más reciente para un nodo específico.
  * Requiere autenticación.
  * @route GET /api/readings/last/:nodeId

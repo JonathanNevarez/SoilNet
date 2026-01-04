@@ -5,6 +5,7 @@ import NodesListView from "../components/nodes/NodesListView";
 import InlineLoader from "../components/ui/InlineLoader";
 import { getLastReadingByNode } from "../services/readings.service";
 import { computeNodeAlerts } from "../utils/nodeAlerts";
+import SystemLatencyPanel from "../components/nodes/SystemLatencyPanel";
 import { Sprout } from "lucide-react";
 
 /**
@@ -88,6 +89,8 @@ export default function Nodes() {
       </div>
 
       <NodesListView nodes={nodes} />
+
+      <SystemLatencyPanel nodes={nodes} />
     </div>
   );
 }
