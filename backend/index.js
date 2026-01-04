@@ -490,19 +490,25 @@ app.post("/api/readings", async (req, res) => {
       humidity_percent,
       rssi,
       sampling_interval,
-      timestamp
+      sensor_timestamp
     } = req.body;
 
+    // Validaciones 
     if (!node_id) {
       return res.status(400).json({ error: "node_id requerido" });
     }
 
-    // Verificar que el nodo esté registrado en el sistema.
+    if (!sensor_timestamp) {
+      return res.status(400).json({ error: "sensor_timestamp requerido" });
+    }
+
+    // Verificar que el nodo esté registrado
     const nodeExists = await Node.exists({ nodeId: node_id });
     if (!nodeExists) {
       return res.status(403).json({ error: "Nodo no registrado" });
     }
 
+    // Guardar 
     await Reading.create({
       node_id,
       raw_value,
@@ -510,13 +516,13 @@ app.post("/api/readings", async (req, res) => {
       humidity_percent,
       rssi,
       sampling_interval,
-      timestamp: timestamp || new Date(),
-      createdAt: new Date()
+      sensor_timestamp: new Date(sensor_timestamp)
     });
 
-    res.json({ message: "Lectura guardada correctamente" });
+    res.status(201).json({ message: "Lectura guardada correctamente" });
 
   } catch (error) {
+    console.error("Error guardando lectura:", error);
     res.status(500).json({ error: error.message });
   }
 });

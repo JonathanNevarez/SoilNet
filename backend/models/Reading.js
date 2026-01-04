@@ -7,7 +7,11 @@ const readingSchema = new mongoose.Schema({
   humidity_percent: Number,
   rssi: Number,
   sampling_interval: Number,
-  createdAt: { type: Date, default: Date.now }
+
+  sensor_timestamp: { type: Date, required: true }
+
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('Reading', readingSchema);
