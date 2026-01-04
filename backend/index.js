@@ -14,6 +14,8 @@ if (process.env.NODE_ENV !== 'production') {
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const http = require("http");
+const { Server } = require("socket.io");
 const { execFile, exec } = require('child_process');
 const cron = require('node-cron');
 const path = require('path');
@@ -30,6 +32,15 @@ const { generateSoilAnalysis } = require('./services/aiService');
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Configuración del servidor HTTP y Socket.IO
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*", // En producción, restringe esto a la URL de tu frontend
+    methods: ["GET", "POST"]
+  }
+});
 
 /**
  * Clave secreta para JWT. Se utiliza para firmar y verificar JSON Web Tokens.
@@ -503,8 +514,8 @@ app.post("/api/readings", async (req, res) => {
     }
 
     // Verificar que el nodo esté registrado
-    const nodeExists = await Node.exists({ nodeId: node_id });
-    if (!nodeExists) {
+    const node = await Node.findOne({ nodeId: node_id });
+    if (!node) {
       return res.status(403).json({ error: "Nodo no registrado" });
     }
 
@@ -518,6 +529,23 @@ app.post("/api/readings", async (req, res) => {
       sampling_interval,
       sensor_timestamp: new Date(sensor_timestamp)
     });
+
+    // --- SOCKET.IO: EMISIÓN DE EVENTOS EN TIEMPO REAL ---
+    // Si el nodo tiene un dueño asignado, notificamos a su sala privada
+    if (node.ownerUid) {
+      const room = node.ownerUid.toString();
+      console.log(`📡 SOCKET: Emitiendo datos a sala [${room}] para nodo [${node_id}]`);
+      io.to(room).emit('reading:new', {
+        nodeId: node_id,
+        humidity: humidity_percent,
+        rssi,
+        voltage,
+        createdAt: new Date()
+      });
+      io.to(room).emit('node:online', { nodeId: node_id });
+    } else {
+      console.log(`⚠️ SOCKET: El nodo [${node_id}] NO tiene dueño asignado. No se emitió evento.`);
+    }
 
     res.status(201).json({ message: "Lectura guardada correctamente" });
 
@@ -862,6 +890,38 @@ app.post("/api/ai/assistant", authenticateToken, async (req, res) => {
 // TAREAS PROGRAMADAS
 // =============================================================================
 
+// =============================================================================
+// SOCKET.IO CONFIGURACIÓN Y EVENTOS
+// =============================================================================
+
+// Middleware: Verificar JWT antes de permitir la conexión del socket
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  if (!token) return next(new Error("Authentication error"));
+  
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) return next(new Error("Authentication error"));
+    socket.user = decoded; // Guardamos datos del usuario en el socket
+    next();
+  });
+});
+
+io.on("connection", (socket) => {
+  console.log(`🟢 Cliente conectado: ${socket.id}`);
+  
+  // Unir al usuario a una sala privada con su UID
+  if (socket.user && socket.user.uid) {
+    socket.join(socket.user.uid);
+    console.log(`👤 Usuario unido a sala: ${socket.user.uid}`);
+  } else {
+    console.log('⚠️ Usuario conectado sin UID válido en el token. No se unió a ninguna sala.');
+  }
+
+  socket.on("disconnect", () => {
+    console.log(`🔴 Cliente desconectado: ${socket.id}`);
+  });
+});
+
 /**
  * Tarea cron programada para el reentrenamiento semanal del modelo.
  * Se ejecuta cada domingo a las 2:00 AM.
@@ -900,6 +960,6 @@ cron.schedule('0 2 * * 0', () => {
  * Inicia el servidor backend en el puerto especificado.
  */
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Servidor backend corriendo en el puerto ${PORT}`);
 });
