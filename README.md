@@ -21,7 +21,7 @@
 *   **Frontend**: React.js, Vite
 *   **Styling**: Tailwind CSS
 *   **Charts**: Recharts
-*   **Backend**: Node.js, Express
+*   **Backend**: Node.js, Express, Socket.IO
 *   **Database**: MongoDB
 *   **Authentication**: JWT (JSON Web Tokens)
 *   **Machine Learning**: Python, Scikit-learn, Pandas, LightGBM
