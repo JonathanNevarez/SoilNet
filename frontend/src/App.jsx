@@ -12,9 +12,10 @@ import ProtectedRoute from "./routes/ProtectedRoute";
 import AppLayout from "./layouts/AppLayout";
 
 /**
- * Componente principal de la aplicación que define las rutas.
- * @returns {JSX.Element} El enrutador de la aplicación.
+ * @file App.jsx
+ * @brief Componente principal que define el enrutamiento de la aplicacion.
  */
+
 export default function App() {
   return (
     <Routes>

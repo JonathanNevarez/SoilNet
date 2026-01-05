@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import SoilNetLogo from "../assets/SoilNet.svg";
 import { login, getCurrentUser } from "../services/authService";
+import { useSocket } from "../services/SocketContext";
 
 /**
  * Página de inicio de sesión.
@@ -15,6 +16,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const { connect } = useSocket();
 
   const navigate = useNavigate();
 
@@ -42,6 +44,9 @@ export default function Login() {
 
     try {
       const user = await login(email, password);
+
+      // Conectar socket manualmente tras login exitoso
+      connect();
 
       navigate(user.role === "admin" ? "/admin" : "/home");
     } catch (err) {

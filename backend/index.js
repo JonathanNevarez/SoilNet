@@ -534,7 +534,6 @@ app.post("/api/readings", async (req, res) => {
     // Si el nodo tiene un dueño asignado, notificamos a su sala privada
     if (node.ownerUid) {
       const room = node.ownerUid.toString();
-      console.log(`📡 SOCKET: Emitiendo datos a sala [${room}] para nodo [${node_id}]`);
       io.to(room).emit('reading:new', {
         nodeId: node_id,
         humidity: humidity_percent,
@@ -543,8 +542,6 @@ app.post("/api/readings", async (req, res) => {
         createdAt: new Date()
       });
       io.to(room).emit('node:online', { nodeId: node_id });
-    } else {
-      console.log(`⚠️ SOCKET: El nodo [${node_id}] NO tiene dueño asignado. No se emitió evento.`);
     }
 
     res.status(201).json({ message: "Lectura guardada correctamente" });
@@ -907,18 +904,12 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
-  console.log(`🟢 Cliente conectado: ${socket.id}`);
-  
   // Unir al usuario a una sala privada con su UID
   if (socket.user && socket.user.uid) {
     socket.join(socket.user.uid);
-    console.log(`👤 Usuario unido a sala: ${socket.user.uid}`);
-  } else {
-    console.log('⚠️ Usuario conectado sin UID válido en el token. No se unió a ninguna sala.');
   }
 
   socket.on("disconnect", () => {
-    console.log(`🔴 Cliente desconectado: ${socket.id}`);
   });
 });
 
@@ -930,28 +921,20 @@ io.on("connection", (socket) => {
  * 2. Ejecutar el script de entrenamiento de Python con el nuevo conjunto de datos.
  */
 cron.schedule('0 2 * * 0', () => {
-  console.log('--- Iniciando tarea de reentrenamiento semanal del modelo ---');
-
   const exportScriptPath = path.join(__dirname, 'ml', 'export_dataset.js');
   const trainScriptPath = path.join(__dirname, 'ml', 'main.py');
   const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
 
-  console.log(`[1/2] Ejecutando script de exportación de dataset: ${exportScriptPath}`);
   exec(`node ${exportScriptPath}`, (error, stdout, stderr) => {
     if (error) {
       console.error(`Error al exportar datos: ${error.message}`);
       return;
     }
-    console.log(`Datos exportados correctamente: ${stdout}`);
-
-    console.log(`[2/2] Ejecutando script de reentrenamiento: ${trainScriptPath}`);
     exec(`${pythonCommand} ${trainScriptPath}`, (pyError, pyStdout, pyStderr) => {
       if (pyError) {
         console.error(`Error al reentrenar el modelo: ${pyError.message}`);
         return;
       }
-      console.log(`Modelo reentrenado correctamente: ${pyStdout}`);
-      console.log('--- Tarea de reentrenamiento completada ---');
     });
   });
 });
