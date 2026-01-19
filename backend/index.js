@@ -36,10 +36,23 @@ const app = express();
 app.use(express.json());
 
 /* ========================
+   CONFIGURACIÓN PROXY (RENDER)
+======================== */
+// Necesario para que Express confíe en el balanceador de carga de Render (HTTPS)
+app.set('trust proxy', 1);
+
+/* ========================
    CORS EXPRESS
 ======================== */
+const allowedOrigins = [
+  "https://wikiclone.info",
+  "https://www.wikiclone.info",
+  process.env.FRONTEND_URL,
+  "http://localhost:5173", // Para desarrollo local
+].filter(Boolean); // Elimina valores nulos/undefined
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "https://wikiclone.info",
+  origin: allowedOrigins,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -55,7 +68,7 @@ const server = http.createServer(app);
 ======================== */
 const io = new Server(server, {
   cors: {
-    origin: true, // Permite conexión de socket desde cualquier IP
+    origin: allowedOrigins, // Usar la misma lista segura que Express
     credentials: true,
     methods: ["GET", "POST"]
   },
@@ -856,7 +869,8 @@ app.post("/api/predict", (req, res) => {
   const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
 
   // Ejecutar el script de Python
-  execFile(pythonCommand, [scriptPath, ...args], (error, stdout, stderr) => {
+  // Aumentamos maxBuffer a 10MB para evitar crash por exceso de logs/warnings de Pandas
+  execFile(pythonCommand, [scriptPath, ...args], { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
     if (error) {
       console.error("Error ejecutando el modelo:", error);
       if (stderr) console.error("Python stderr:", stderr);
