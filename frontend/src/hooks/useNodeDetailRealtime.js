@@ -25,12 +25,12 @@ export function useNodeDetailRealtime(nodeId) {
   const [loading, setLoading] = useState(true);
 
   // Carga inicial de metadatos y última lectura conocida
-  useEffect(() => {
+  const loadData = async (isBackground = false) => {
     if (!nodeId) return;
 
-    const loadData = async () => {
+    
       try {
-        setLoading(true);
+        if (!isBackground) setLoading(true);
 
         const nodeData = await getNodeById(nodeId);
         setNode(nodeData);
@@ -41,11 +41,14 @@ export function useNodeDetailRealtime(nodeId) {
         await loadHistory("24h");
       } catch (err) {
       } finally {
-        setLoading(false);
+        if (!isBackground) setLoading(false);
       }
-    };
+  };
 
+  useEffect(() => {
     loadData();
+    const interval = setInterval(() => loadData(true), 30000); // Actualizar cada 30s
+    return () => clearInterval(interval);
   }, [nodeId]);
 
   // Función para obtener datos históricos según el rango de tiempo seleccionado

@@ -10,7 +10,13 @@ export default function NodeGrid({ nodes }) {
       </h3>
       <div className="grid grid-cols-1 gap-3">
         {nodes.map((item) => (
-          <NodeStatusCard key={item.node.nodeId} node={item.node} statusType={item.statusType} />
+          <NodeStatusCard 
+            key={item.node.nodeId} 
+            node={item.node} 
+            statusType={item.statusType}
+            isOnline={item.isOnline}
+            isLowBattery={item.isLowBattery}
+          />
         ))}
       </div>
     </div>

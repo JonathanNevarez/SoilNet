@@ -39,7 +39,7 @@ app.use(express.json());
    CORS EXPRESS
 ======================== */
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: true, // Permite cualquier origen dinámicamente (útil para desarrollo/red local)
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -55,7 +55,7 @@ const server = http.createServer(app);
 ======================== */
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: true, // Permite conexión de socket desde cualquier IP
     credentials: true,
     methods: ["GET", "POST"]
   },
@@ -533,15 +533,17 @@ app.post("/api/readings", async (req, res) => {
       return res.status(400).json({ error: "sensor_timestamp requerido" });
     }
 
+    const cleanNodeId = node_id.trim();
+
     // Verificar que el nodo esté registrado
-    const node = await Node.findOne({ nodeId: node_id });
+    const node = await Node.findOne({ nodeId: cleanNodeId });
     if (!node) {
       return res.status(403).json({ error: "Nodo no registrado" });
     }
 
     // Guardar 
     const newReading = await Reading.create({
-      node_id,
+      node_id: cleanNodeId,
       raw_value,
       voltage,
       humidity_percent,
@@ -555,13 +557,13 @@ app.post("/api/readings", async (req, res) => {
     if (node.ownerUid) {
       const room = node.ownerUid.toString();
       io.to(room).emit('reading:new', {
-        nodeId: node_id,
+        nodeId: cleanNodeId.trim(), // Asegurar trim
         humidity: humidity_percent,
         rssi,
         voltage,
         sensor_timestamp: newReading.sensor_timestamp
       });
-      io.to(room).emit('node:online', { nodeId: node_id });
+      io.to(room).emit('node:online', { nodeId: cleanNodeId });
     }
 
     res.status(201).json({ message: "Lectura guardada correctamente" });

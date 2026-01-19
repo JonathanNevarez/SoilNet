@@ -5,7 +5,8 @@ import {
   TrendingDown, 
   Minus, 
   BatteryWarning, 
-  WifiOff 
+  WifiOff,
+  Wifi
 } from "lucide-react";
 
 // Función auxiliar para tiempo relativo (simple para no depender de librerías externas aquí)
@@ -29,8 +30,11 @@ function getSoilLabel(type) {
   return map[type] || "Suelo";
 }
 
-export default function NodeStatusCard({ node, statusType }) {
-  const { name, nodeId, lastReading, soil_type, isOnline, isLowBattery } = node;
+export default function NodeStatusCard({ node, statusType, isOnline: propIsOnline, isLowBattery: propIsLowBattery }) {
+  const { name, nodeId, lastReading, soil_type } = node;
+  // Usar props si existen, sino buscar en el objeto node (fallback)
+  const isOnline = propIsOnline !== undefined ? propIsOnline : (node.isOnline || node.online);
+  const isLowBattery = propIsLowBattery !== undefined ? propIsLowBattery : node.isLowBattery;
   const humidity = lastReading?.humidity_percent ?? "--";
   const timeAgo = getTimeAgo(lastReading?.createdAt);
   
@@ -91,7 +95,11 @@ export default function NodeStatusCard({ node, statusType }) {
               <h3 className="font-bold text-slate-800 text-lg truncate leading-tight">{name}</h3>
               {/* Indicadores de estado técnico */}
               <div className="flex gap-1">
-                {!isOnline && <WifiOff size={14} className="text-slate-400" />}
+                {isOnline ? (
+                  <Wifi size={14} className="text-emerald-500" />
+                ) : (
+                  <WifiOff size={14} className="text-slate-400" />
+                )}
                 {isLowBattery && <BatteryWarning size={14} className="text-rose-500" />}
               </div>
             </div>

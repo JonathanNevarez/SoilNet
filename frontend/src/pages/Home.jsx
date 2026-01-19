@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import InlineLoader from "../components/ui/InlineLoader";
 import { getSoilStatus } from "../utils/nodeLogic";
 import { useNodesRealtime } from "../hooks/useNodesRealtime";
@@ -23,6 +23,15 @@ import SoilNetLogo from "../assets/SoilNet.svg";
 export default function Home() {
   const { nodes, loading } = useNodesRealtime();
   
+  // Estado para forzar la actualización de la interfaz cada cierto tiempo
+  // y recalcular si los nodos siguen "online" o ya caducaron.
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 10000); // Actualizar cada 10s
+    return () => clearInterval(timer);
+  }, []);
+
   // Hook de predicciones (consume API ML)
   const { predictions, loading: loadingPredictions } = usePredictions(nodes);
 
@@ -59,13 +68,12 @@ export default function Home() {
         ? new Date(node.lastReading.createdAt).getTime()
         : 0;
 
-      const intervalMs = (node.lastReading?.sampling_interval ?? 30) * 1000;
-
-      const isOnline = Date.now() - lastTime < intervalMs * 3;
+      // Tolerancia: 35 segundos
+      const isOnline = (now - lastTime) < 35000;
       const isLowBattery = (node.lastReading?.voltage ?? 4.0) < 3.3;
 
       return { node, statusType, isOnline, isLowBattery };
-    });
+    }); // Se recalcula cuando cambian los nodos O cuando cambia 'now'
 
     const dryNodes = processed.filter(n => n.statusType === "SECO");
     const excessNodes = processed.filter(n => n.statusType === "EXCESO");
@@ -103,7 +111,7 @@ export default function Home() {
       insights
     };
 
-  }, [nodes]);
+  }, [nodes, now]);
 
   if (loading) {
     return (

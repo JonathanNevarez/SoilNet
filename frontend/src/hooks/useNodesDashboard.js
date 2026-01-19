@@ -23,14 +23,15 @@ export function useNodesDashboard() {
 
   // Carga inicial y procesamiento de métricas derivadas (alertas, promedios)
   useEffect(() => {
-    const loadNodes = async () => {
+    const loadNodes = async (isBackground = false) => {
       const user = getCurrentUser();
       if (!user) {
-        setLoading(false);
+        if (!isBackground) setLoading(false);
         return;
       }
 
       try {
+        if (!isBackground) setLoading(true);
         const data = await getUserNodes(user.uid);
         const enrichedNodes = await Promise.all(
           data.map(async (node) => {
@@ -74,11 +75,13 @@ export function useNodesDashboard() {
         setNodes(enrichedNodes);
       } catch (err) {
       } finally {
-        setLoading(false);
+        if (!isBackground) setLoading(false);
       }
     };
 
     loadNodes();
+    const interval = setInterval(() => loadNodes(true), 30000); // Actualizar cada 30s
+    return () => clearInterval(interval);
   }, []);
 
   // Manejo de eventos WebSocket para actualizaciones dinámicas
