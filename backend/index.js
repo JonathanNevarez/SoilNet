@@ -30,36 +30,36 @@ const { generateSoilAnalysis } = require('./services/aiService');
 // =============================================================================
 // CONFIGURACIÓN DE LA APP
 // =============================================================================
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://soilnet.vercel.app",
-  "https://soilnet-frontend.onrender.com"
-];
+const FRONTEND_URL = process.env.FRONTEND_URL;
 
 const app = express();
 app.use(express.json());
 
+/* ========================
+   CORS EXPRESS
+======================== */
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS no permitido"));
-    }
-  },
+  origin: FRONTEND_URL,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// Configuración del servidor HTTP y Socket.IO
+/* ========================
+   SERVIDOR HTTP
+======================== */
 const server = http.createServer(app);
+
+/* ========================
+   SOCKET.IO
+======================== */
 const io = new Server(server, {
   cors: {
-    origin: true, // Permite cualquier origen dinámicamente
+    origin: FRONTEND_URL,
     credentials: true,
     methods: ["GET", "POST"]
-  }
+  },
+  transports: ["websocket", "polling"]
 });
 
 /**
