@@ -30,19 +30,34 @@ const { generateSoilAnalysis } = require('./services/aiService');
 // =============================================================================
 // CONFIGURACIÓN DE LA APP
 // =============================================================================
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://soilnet.vercel.app",
+  "https://soilnet-frontend.onrender.com"
+];
+
 const app = express();
+app.use(express.json());
+
 app.use(cors({
-  origin: "*", // Permite acceso desde cualquier origen (útil para PWA/móvil)
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS no permitido"));
+    }
+  },
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
-app.use(express.json());
 
 // Configuración del servidor HTTP y Socket.IO
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // En producción, restringe esto a la URL de tu frontend
+    origin: true, // Permite cualquier origen dinámicamente
+    credentials: true,
     methods: ["GET", "POST"]
   }
 });
@@ -954,6 +969,6 @@ cron.schedule('0 2 * * 0', () => {
  * Inicia el servidor backend en el puerto especificado.
  */
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor backend corriendo en el puerto ${PORT}`);
 });
