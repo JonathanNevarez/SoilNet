@@ -690,12 +690,12 @@ app.get("/api/readings/last/:nodeId", async (req, res) => {
  */
 app.get("/api/readings/history/:nodeId", async (req, res) => {
   try {
-    const { nodeId } = req.params;
+    const nodeId = req.params.nodeId.trim();
     const { from, range } = req.query;
 
     const matchStage = { node_id: nodeId };
     if (from) {
-      matchStage.sensor_timestamp = { $gte: new Date(from) };
+      matchStage.sensor_timestamp = { $gte: new Date(from) }; // Esto traerá datos futuros también si from es pasado
     }
 
     // Si no se especifica un rango, devuelve datos crudos (limitado por rendimiento).
@@ -738,7 +738,7 @@ app.get("/api/readings/history/:nodeId", async (req, res) => {
         break;
     }
 
-    const pipeline = [
+    let pipeline = [
       { $match: matchStage },
       {
         $group: {
@@ -760,6 +760,12 @@ app.get("/api/readings/history/:nodeId", async (req, res) => {
       { $project: { _id: 0 } },
       { $sort: { sensor_timestamp: 1 } }
     ];
+
+    // Si no hay rango (datos crudos), usamos una pipeline más simple o find directo arriba
+    if (!range) {
+       // Esto ya se manejó arriba con el if (!range) return ...
+       // Pero por seguridad en la lógica de agregación:
+    }
 
     const readings = await Reading.aggregate(pipeline);
     res.json(readings);

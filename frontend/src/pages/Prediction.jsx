@@ -13,8 +13,12 @@ import {
   Signal, 
   Clock, 
   Calendar,
-  Search
+  Search,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from "lucide-react";
+import SoilNetLogo from "../assets/SoilNet.svg";
 
 /**
  * @file Prediction.jsx
@@ -48,6 +52,13 @@ export default function Prediction() {
   const [prediction, setPrediction] = useState(null);
   const [predicting, setPredicting] = useState(false);
   const [error, setError] = useState("");
+
+  // Fecha para el header
+  const today = new Date().toLocaleDateString("es-EC", {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  });
 
   /**
    * Efecto para cargar los nodos del usuario al montar el componente.
@@ -160,26 +171,39 @@ export default function Prediction() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F9F7] px-4 py-6 space-y-6">
+    <div className="min-h-screen bg-slate-50/50 pb-32 font-sans text-slate-900 selection:bg-green-100">
       
-      <div className="flex items-center gap-2 text-gray-700">
-        <Calculator size={24} className="text-green-600" />
-        <h1 className="text-2xl font-bold">Simulador Predictivo</h1>
+      {/* HEADER UNIFICADO */}
+      <div className="sticky top-0 z-40 px-6 py-4 bg-white/80 backdrop-blur-md border-b border-slate-100 flex justify-between items-center transition-all">
+        <img
+          src={SoilNetLogo}
+          alt="SoilNet"
+          className="h-12 object-contain block"
+        />
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          {today}
+        </span>
       </div>
 
-      <p className="text-gray-500 text-sm">
-        Estime la humedad futura del suelo basándose en las condiciones actuales de los sensores.
-      </p>
+      <main className="px-5 pt-8 space-y-6 max-w-lg mx-auto">
+
+        {/* TÍTULO DISCRETO */}
+        <div className="flex items-center gap-3 text-slate-700">
+          <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
+            <Calculator size={20} />
+          </div>
+          <h2 className="font-bold text-lg">Simulador Predictivo</h2>
+        </div>
 
       {/* Selector de Nodo */}
-      <div className="bg-white rounded-xl shadow p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-          <Search size={16} /> Cargar datos desde un nodo
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <Search size={14} /> Cargar datos reales
         </label>
         <select
           value={selectedNodeId}
           onChange={handleNodeSelect}
-          className="w-full px-4 py-2 rounded-lg border border-gray-300 bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none cursor-pointer"
         >
           <option value="">-- Selección manual --</option>
           {nodes.map(node => (
@@ -189,18 +213,21 @@ export default function Prediction() {
           ))}
         </select>
         {selectedNodeId && !error && (
-          <p className="text-xs text-green-600 mt-2">
-            Datos cargados de la última lectura disponible.
-          </p>
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Datos desde nodo
+            </div>
+            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wide">Última lectura utilizada</span>
+          </div>
         )}
       </div>
 
       <form onSubmit={handlePredict} className="space-y-6">
         
-        <div className="bg-white rounded-xl shadow p-6 space-y-4">
-          <h2 className="font-semibold text-gray-800 border-b pb-2">Variables de Entrada</h2>
+        <div className="space-y-4">
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             
             {/* Inputs del formulario */}
             {[
@@ -210,8 +237,8 @@ export default function Prediction() {
               { label: "Señal RSSI (dBm)", name: "rssi", icon: Signal, step: "1" },
               { label: "Hora del día (0-23)", name: "hour", icon: Clock, step: "1", max: 23 },
             ].map((field) => (
-              <div key={field.name}>
-                <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1 mb-1">
+              <div key={field.name} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-200 transition-colors group">
+                <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1.5 mb-2 group-hover:text-emerald-600 transition-colors">
                   <field.icon size={14} /> {field.label}
                 </label>
                 <input
@@ -219,7 +246,7 @@ export default function Prediction() {
                   name={field.name}
                   value={formData[field.name]}
                   onChange={handleChange}
-                  className="w-full p-3 rounded-lg border border-gray-200 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition"
+                  className="w-full bg-transparent font-black text-slate-700 text-xl outline-none placeholder:text-slate-300"
                   step={field.step}
                   max={field.max}
                 />
@@ -227,15 +254,15 @@ export default function Prediction() {
             ))}
 
             {/* Selector de Día */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1 mb-1">
+            <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:border-emerald-200 transition-colors group">
+              <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1.5 mb-2 group-hover:text-emerald-600 transition-colors">
                 <Calendar size={14} /> Día Semana
               </label>
               <select
                 name="day_of_week"
                 value={formData.day_of_week}
                 onChange={handleChange}
-                className="w-full p-3 rounded-lg border border-gray-200 focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition bg-white"
+                className="w-full bg-transparent font-bold text-slate-700 text-base outline-none cursor-pointer"
               >
                 {["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"].map((day, idx) => (
                   <option key={idx} value={idx}>{day}</option>
@@ -247,7 +274,7 @@ export default function Prediction() {
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm text-center">
+          <div className="bg-red-50 border border-red-100 text-red-600 p-4 rounded-2xl text-sm font-medium text-center animate-in fade-in slide-in-from-top-2">
             {error}
           </div>
         )}
@@ -255,7 +282,7 @@ export default function Prediction() {
         <button
           type="submit"
           disabled={predicting}
-          className="w-full py-4 rounded-xl bg-green-600 text-white font-bold text-lg shadow-lg hover:bg-green-700 transition active:scale-[0.98] disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-2xl bg-emerald-600 text-white font-bold text-base shadow-lg shadow-emerald-200 hover:bg-emerald-700 hover:shadow-emerald-300 transition-all active:scale-[0.98] disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {predicting ? (
             <>Calculando...</>
@@ -270,33 +297,55 @@ export default function Prediction() {
 
       {/* Resultado */}
       {prediction !== null && (
-        <div className="bg-white rounded-2xl shadow-lg p-6 border-t-4 border-green-500 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <p className="text-center text-gray-500 text-sm uppercase tracking-wide font-semibold">
-            Humedad Futura Estimada
-          </p>
+        <div className="bg-white rounded-3xl shadow-lg shadow-slate-200/50 p-6 border border-slate-100 animate-in fade-in slide-in-from-bottom-4 duration-500 relative overflow-hidden">
+          <div className={`absolute top-0 left-0 w-full h-1.5 ${
+            prediction > formData.humidity_percent ? "bg-blue-500" : 
+            prediction < formData.humidity_percent ? "bg-amber-500" : "bg-slate-300"
+          }`}></div>
           
-          <div className="flex items-center justify-center gap-4 mt-4">
-            <div className="text-right">
-              <p className="text-sm text-gray-400">Actual</p>
-              <p className="text-2xl font-bold text-gray-600">{formData.humidity_percent}%</p>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-slate-800 text-lg">Resultado del Modelo</h3>
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide ${
+              prediction > formData.humidity_percent ? "bg-blue-50 text-blue-700" : 
+              prediction < formData.humidity_percent ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"
+            }`}>
+              {prediction > formData.humidity_percent ? "Aumento" : prediction < formData.humidity_percent ? "Descenso" : "Estable"}
+            </span>
+          </div>
+          
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Valor Actual</p>
+              <p className="text-2xl font-bold text-slate-500 tracking-tight">{formData.humidity_percent}%</p>
             </div>
             
-            <ArrowRight className="text-green-500" size={32} />
+            <div className="flex-1 flex justify-center text-slate-300">
+              <ArrowRight size={24} />
+            </div>
             
-            <div className="text-left">
-              <p className="text-sm text-green-600 font-semibold">Predicción</p>
-              <p className="text-5xl font-extrabold text-green-700">
-                {prediction.toFixed(1)}%
-              </p>
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Predicción</p>
+              <div className="flex items-center justify-end gap-2">
+                {prediction > formData.humidity_percent && <TrendingUp size={20} className="text-blue-500" />}
+                {prediction < formData.humidity_percent && <TrendingDown size={20} className="text-amber-500" />}
+                {prediction === formData.humidity_percent && <Minus size={20} className="text-slate-400" />}
+                <p className="text-4xl font-black text-slate-800 tracking-tighter">
+                  {prediction.toFixed(1)}%
+                </p>
+              </div>
             </div>
           </div>
 
-          <p className="text-center text-xs text-gray-400 mt-6">
+          <div className="mt-6 pt-4 border-t border-slate-50 flex justify-center">
+             <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+               <Activity size={12} />
             Basado en modelo Random Forest (v1.0)
-          </p>
+             </span>
+          </div>
         </div>
       )}
 
+      </main>
     </div>
   );
 }

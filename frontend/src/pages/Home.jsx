@@ -1,126 +1,156 @@
-import { Sprout, AlertTriangle, DropletOff, Droplets } from "lucide-react";
+import { useMemo } from "react";
 import InlineLoader from "../components/ui/InlineLoader";
-import SummaryPanel from "../components/home/SummaryPanel";
-import AlertsPanel from "../components/home/AlertsPanel";
-import NodeGrid from "../components/home/NodeGrid";
 import { getSoilStatus } from "../utils/nodeLogic";
 import { useNodesRealtime } from "../hooks/useNodesRealtime";
+import { usePredictions } from "../hooks/usePredictions"; // NUEVO
+
+// Componentes de la nueva arquitectura
+import DecisionHero from "../components/home/DecisionHero";
+import PriorityZones from "../components/home/PriorityZones";
+import NodeGrid from "../components/home/NodeGrid";
+import InsightStrip from "../components/home/InsightStrip";
+import PredictionStrip from "../components/home/PredictionStrip"; // NUEVO
+
+// 👇 NUEVO: Import de tu logo
+import SoilNetLogo from "../assets/SoilNet.svg";
 
 /**
  * @file Home.jsx
- * @brief Página principal (Dashboard) de la aplicación.
- *
- * Muestra un resumen del estado general del sistema, incluyendo KPIs, alertas
- * y una vista general de todos los nodos del usuario.
+ * @brief Centro de decisiones de riego para agricultores.
+ * Elimina promedios globales y se enfoca en la clasificación por estado de cada parcela.
  */
-export default function Home() {
-  // Hook centralizado de nodos en tiempo real
-  const { nodes, loading } = useNodesRealtime();
 
-  // Loader mientras se cargan los nodos
+export default function Home() {
+  const { nodes, loading } = useNodesRealtime();
+  
+  // Hook de predicciones (consume API ML)
+  const { predictions, loading: loadingPredictions } = usePredictions(nodes);
+
+  // Fecha formateada
+  const today = new Date().toLocaleDateString("es-EC", {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  });
+
+  // --- Lógica de Clasificación y Procesamiento ---
+  const dashboardData = useMemo(() => {
+    if (!nodes) return { 
+      allNodes: [], 
+      dryNodes: [], 
+      excessNodes: [], 
+      counts: { SECO: 0, MEDIO: 0, OPTIMO: 0, EXCESO: 0 },
+      onlineCount: 0,
+      lowBatteryCount: 0,
+      insights: []
+    };
+
+    const processed = nodes.map(node => {
+      const humidity = node.lastReading?.humidity_percent ?? null;
+      const soilStatus = getSoilStatus(humidity, node.soil_type);
+      
+      let statusType = "MEDIO";
+      
+      if (soilStatus.stateCode === "DRY") statusType = "SECO";
+      else if (soilStatus.stateCode === "EXCESS" || soilStatus.stateCode === "WET") statusType = "EXCESO";
+      else if (soilStatus.stateCode === "OPTIMAL") statusType = "OPTIMO";
+
+      const lastTime = node.lastReading?.createdAt
+        ? new Date(node.lastReading.createdAt).getTime()
+        : 0;
+
+      const intervalMs = (node.lastReading?.sampling_interval ?? 30) * 1000;
+
+      const isOnline = Date.now() - lastTime < intervalMs * 3;
+      const isLowBattery = (node.lastReading?.voltage ?? 4.0) < 3.3;
+
+      return { node, statusType, isOnline, isLowBattery };
+    });
+
+    const dryNodes = processed.filter(n => n.statusType === "SECO");
+    const excessNodes = processed.filter(n => n.statusType === "EXCESO");
+
+    const counts = {
+      SECO: dryNodes.length,
+      EXCESO: excessNodes.length,
+      MEDIO: processed.filter(n => n.statusType === "MEDIO").length,
+      OPTIMO: processed.filter(n => n.statusType === "OPTIMO").length,
+    };
+
+    const onlineCount = processed.filter(n => n.isOnline).length;
+    const lowBatteryCount = processed.filter(n => n.isLowBattery).length;
+
+    const insights = [];
+    if (counts.SECO > 0) {
+      insights.push(
+        `${counts.SECO} ${counts.SECO === 1 ? "zona requiere" : "zonas requieren"} riego en las próximas horas.`
+      );
+    }
+
+    if (counts.EXCESO > 0) {
+      insights.push(
+        `Detectado exceso de humedad en ${counts.EXCESO} ${counts.EXCESO === 1 ? "zona" : "zonas"}. Revisar drenaje.`
+      );
+    }
+
+    return {
+      allNodes: processed,
+      dryNodes,
+      excessNodes,
+      counts,
+      onlineCount,
+      lowBatteryCount,
+      insights
+    };
+
+  }, [nodes]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F6F9F7] px-4 py-6">
-        <InlineLoader text="Cargando información del sistema" />
+      <div className="min-h-screen bg-slate-50 px-4 py-6 flex flex-col items-center justify-center">
+        <InlineLoader text="Cargando parcelas..." />
       </div>
     );
   }
 
-  // --- Procesamiento de nodos para agregar humedad y estado del suelo ---
-  const processedNodes = nodes.map((node) => {
-    const humidity = node.lastReading?.humidity_percent ?? null;
-    const soilStatus = getSoilStatus(humidity, node.soil_type);
-    return { ...node, humidity, soilStatus };
-  });
-
-  // --- Cálculo de KPIs y estado global ---
-  const total = processedNodes.length;
-  const sum = processedNodes.reduce((acc, n) => acc + (n.humidity || 0), 0);
-  const averageHumidity = total ? Math.round(sum / total) : 0;
-
-  const dryCount = processedNodes.filter(n => n.soilStatus.stateCode === "DRY").length;
-  const excessCount = processedNodes.filter(n => n.soilStatus.stateCode === "EXCESS").length;
-
-  let globalStatus = "ÓPTIMO";
-  if (dryCount > 0) globalStatus = "SECO";
-  else if (excessCount > 0) globalStatus = "EXCESO";
-  else if (processedNodes.some(n => n.soilStatus.stateCode === "MEDIUM")) globalStatus = "MEDIO";
-
-  // Filtramos alertas
-  const alerts = processedNodes.filter(n => n.soilStatus.stateCode !== "OPTIMAL");
-
   return (
-    <div className="min-h-screen bg-[#F6F9F7] px-4 py-6 space-y-6">
-      {/* Panel de estado global */}
-      <div
-        className={`rounded-2xl shadow p-6 flex items-center gap-6
-          ${
-            globalStatus === "ÓPTIMO"
-              ? "bg-green-50/60"
-              : globalStatus === "MEDIO"
-              ? "bg-yellow-50/60"
-              : globalStatus === "EXCESO"
-              ? "bg-blue-50/60"
-              : "bg-red-50/60"
-          }
-        `}
-      >
-        <div
-          className={`w-14 h-14 flex items-center justify-center rounded-full
-            ${
-              globalStatus === "ÓPTIMO"
-                ? "bg-green-100 text-green-700"
-                : globalStatus === "MEDIO"
-                ? "bg-yellow-100 text-yellow-700"
-                : globalStatus === "EXCESO"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-red-100 text-red-700"
-            }`}
-        >
-          {globalStatus === "ÓPTIMO" && <Sprout size={28} />}
-          {globalStatus === "MEDIO" && <AlertTriangle size={28} />}
-          {globalStatus === "EXCESO" && <Droplets size={28} />}
-          {globalStatus === "SECO" && <DropletOff size={28} />}
-        </div>
+    <div className="min-h-screen bg-slate-50/50 pb-32 font-sans text-slate-900 selection:bg-green-100">
+      
+      {/* HEADER */}
 
-        <div className="flex-1">
-          <p className="text-sm text-gray-500">Estado general del sistema</p>
-          <p
-            className={`text-3xl font-extrabold mt-1
-              ${
-                globalStatus === "ÓPTIMO"
-                  ? "text-green-700"
-                  : globalStatus === "MEDIO"
-                  ? "text-yellow-700"
-                  : globalStatus === "EXCESO"
-                  ? "text-blue-700"
-                  : "text-red-700"
-              }
-            `}
-          >
-            {globalStatus}
-          </p>
-          <p className="text-sm text-gray-600 mt-1">
-            {globalStatus === "ÓPTIMO" && "Todo está en buen estado, no se requiere acción"}
-            {globalStatus === "MEDIO" && "Algunas zonas deben ser vigiladas"}
-            {globalStatus === "EXCESO" && "Riesgo de saturación en algunos nodos"}
-            {globalStatus === "SECO" && "Se recomienda regar inmediatamente"}
-          </p>
-        </div>
+      <div className="sticky top-0 z-40 px-6 py-4 bg-white/80 backdrop-blur-md border-b border-slate-100 flex justify-between items-center transition-all">
+
+        {/* Logo a la izquierda – más grande y sin márgenes Y */}
+        <img
+          src={SoilNetLogo}
+          alt="SoilNet"
+          className="h-12 object-contain block"
+        />
+
+        {/* Fecha a la derecha */}
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          {today}
+        </span>
+
       </div>
 
-      {/* Panel resumen */}
-      <div className="flex justify-center">
-        <div className="w-full max-w-3xl">
-          <SummaryPanel averageHumidity={averageHumidity} criticalCount={dryCount + excessCount} />
-        </div>
-      </div>
+      <main className="px-5 pt-8 space-y-8 max-w-lg mx-auto">
+        
+        <DecisionHero counts={dashboardData.counts} />
 
-      {/* Panel de alertas */}
-      <AlertsPanel alerts={alerts} />
+        <PriorityZones 
+          dryNodes={dashboardData.dryNodes} 
+          excessNodes={dashboardData.excessNodes} 
+        />
 
-      {/* Cuadrícula de nodos */}
-      <NodeGrid nodes={processedNodes} />
+        {/* Módulo de Predicciones (Ubicación solicitada) */}
+        <PredictionStrip predictions={predictions} loading={loadingPredictions} />
+
+        <InsightStrip insights={dashboardData.insights} />
+
+        <NodeGrid nodes={dashboardData.allNodes} />
+        
+      </main>
     </div>
   );
 }

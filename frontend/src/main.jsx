@@ -10,9 +10,9 @@ import { SocketProvider } from "./services/SocketContext";
  * Renderiza el componente principal `App` dentro del DOM.
  */
 createRoot(document.getElementById("root")).render(
-    <SocketProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <SocketProvider>
         <App />
-      </BrowserRouter>
-    </SocketProvider>
+      </SocketProvider>
+    </BrowserRouter>
 );

@@ -1,51 +1,48 @@
 import { io } from 'socket.io-client';
 
-/**
- * @file socket.js
- * @brief Servicio para la gestión de la conexión WebSocket.
- */
-
 let socket;
 
-/**
- * Inicializa la conexión WebSocket con el servidor.
- * Implementa patrón Singleton para evitar múltiples conexiones activas.
- *
- * @param {string} token - Token JWT para autenticación en el handshake.
- * @returns {object} Instancia del socket cliente.
- */
 export const initiateSocketConnection = (token) => {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
 
-  // Verificación de conexión existente
-  if (socket && socket.connected) return socket;
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
 
   socket = io(API_URL, {
-    auth: {
-      token: token
-    },
-    transports: ['websocket'], // Prioridad a WebSocket sobre polling
-    autoConnect: true,
+    auth: { token },
+
+    transports: ['polling', 'websocket'],
+    withCredentials: true,
+
     reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1500,
+    reconnectionDelayMax: 10000,
+
+    timeout: 20000,
+  });
+
+  socket.on("connect_error", (err) => {
+    console.warn("Socket error:", err.message);
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.log("Socket disconnected:", reason);
+    if (reason === "io server disconnect") {
+      // the disconnection was initiated by the server, you need to reconnect manually
+      socket.connect();
+    }
+    // else the socket will automatically try to reconnect
   });
 
   return socket;
 };
 
-/**
- * Cierra la conexión WebSocket activa y limpia la instancia.
- */
 export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
   }
 };
-
-/**
- * Obtiene la instancia actual del socket.
- * @returns {object|null} Instancia del socket o null si no está inicializado.
- */
-export const getSocket = () => socket;

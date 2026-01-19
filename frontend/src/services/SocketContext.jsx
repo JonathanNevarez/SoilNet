@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { initiateSocketConnection, disconnectSocket } from "./socket";
 
 /**
@@ -33,11 +33,21 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
 
+  // Cierra la conexión WebSocket y limpia el estado
+  const disconnect = useCallback(() => {
+    disconnectSocket();
+    setSocket(null);
+    setIsConnected(false);
+  }, []);
+
   // Inicializa la conexión WebSocket utilizando el token de autenticación almacenado
-  const connect = () => {
+  const connect = useCallback(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
     
+    // Aseguramos limpieza previa para evitar conexiones duplicadas
+    disconnectSocket();
+
     const socketInstance = initiateSocketConnection(token);
     setSocket(socketInstance);
 
@@ -50,20 +60,17 @@ export const SocketProvider = ({ children }) => {
     };
 
     const onConnectError = (err) => {
+      console.error("Error de conexión Socket:", err);
       setIsConnected(false);
     };
 
+    socketInstance.off("connect");
+    socketInstance.off("disconnect");
+    socketInstance.off("connect_error");
     socketInstance.on("connect", onConnect);
     socketInstance.on("disconnect", onDisconnect);
     socketInstance.on("connect_error", onConnectError);
-  };
-
-  // Cierra la conexión WebSocket y limpia el estado
-  const disconnect = () => {
-    disconnectSocket();
-    setSocket(null);
-    setIsConnected(false);
-  };
+  }, []);
 
   useEffect(() => {
     // Intento de reconexión automática al montar el componente si existe una sesión válida
@@ -74,10 +81,17 @@ export const SocketProvider = ({ children }) => {
     return () => {
       disconnect();
     };
-  }, []);
+  }, [connect, disconnect]);
+
+  const value = useMemo(() => ({
+    socket,
+    isConnected,
+    connect,
+    disconnect
+  }), [socket, isConnected, connect, disconnect]);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected, connect, disconnect }}>
+    <SocketContext.Provider value={value}>
       {children}
     </SocketContext.Provider>
   );
