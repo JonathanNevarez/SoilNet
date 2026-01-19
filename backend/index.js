@@ -39,7 +39,7 @@ app.use(express.json());
    CORS EXPRESS
 ======================== */
 app.use(cors({
-  origin: true, // Permite cualquier origen dinámicamente (útil para desarrollo/red local)
+  origin: process.env.FRONTEND_URL || "https://wikiclone.info",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -859,6 +859,7 @@ app.post("/api/predict", (req, res) => {
   execFile(pythonCommand, [scriptPath, ...args], (error, stdout, stderr) => {
     if (error) {
       console.error("Error ejecutando el modelo:", error);
+      if (stderr) console.error("Python stderr:", stderr);
       return res.status(500).json({ error: "Error al ejecutar el modelo predictivo" });
     }
 
