@@ -4,7 +4,7 @@ let socket;
 
 export const initiateSocketConnection = (token) => {
   // Detecta automáticamente la IP/Hostname actual o usa localhost como fallback
-  const API_URL = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:3000`;
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
   if (socket) {
     socket.disconnect();
