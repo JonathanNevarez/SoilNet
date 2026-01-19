@@ -3,8 +3,14 @@ import { io } from 'socket.io-client';
 let socket;
 
 export const initiateSocketConnection = (token) => {
-  // Detecta automáticamente la IP/Hostname actual o usa localhost como fallback
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+  // Lógica robusta: Si estamos en localhost, usa localhost.
+  // Si estamos en producción (wikiclone.info), usa la URL del backend de Render explícitamente.
+  let API_URL = "http://localhost:3000";
+  
+  if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    // Poner aquí TU URL EXACTA del backend en Render
+    API_URL = "https://soilnet-backend.onrender.com";
+  }
 
   if (socket) {
     socket.disconnect();

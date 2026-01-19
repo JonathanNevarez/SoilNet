@@ -47,6 +47,7 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   "https://wikiclone.info",
   "https://www.wikiclone.info",
+  "https://soilnet-backend.onrender.com", // A veces necesario para self-ping
   process.env.FRONTEND_URL,
   "http://localhost:5173", // Para desarrollo local
 ].filter(Boolean); // Elimina valores nulos/undefined
