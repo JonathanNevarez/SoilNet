@@ -72,7 +72,9 @@ const io = new Server(server, {
     credentials: true,
     methods: ["GET", "POST"]
   },
-  transports: ["websocket", "polling"]
+  transports: ["websocket", "polling"],
+  pingTimeout: 60000, // Aumentado a 60s para evitar desconexiones en Render
+  connectTimeout: 45000 // Mayor tolerancia para la conexión inicial
 });
 
 /**
@@ -942,11 +944,13 @@ app.post("/api/ai/assistant", authenticateToken, async (req, res) => {
 
 // Middleware: Verificar JWT antes de permitir la conexión del socket
 io.use((socket, next) => {
-  const token = socket.handshake.auth.token;
-  if (!token) return next(new Error("Authentication error"));
+  // Verificar token en auth (estándar) o query (fallback para mayor compatibilidad)
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+  
+  if (!token) return next(new Error("Authentication error: Token required"));
   
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return next(new Error("Authentication error"));
+    if (err) return next(new Error("Authentication error: Invalid token"));
     socket.user = decoded; // Guardamos datos del usuario en el socket
     next();
   });
@@ -955,6 +959,7 @@ io.use((socket, next) => {
 io.on("connection", (socket) => {
   // Unir al usuario a una sala privada con su UID
   if (socket.user && socket.user.uid) {
+    console.log(`[Socket] Usuario conectado: ${socket.user.email} (${socket.id})`);
     socket.join(socket.user.uid);
   }
 
