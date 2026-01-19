@@ -22,10 +22,10 @@ def preprocess_data(df, is_training=True):
       desplazando la humedad para predecir la siguiente lectura de cada nodo.
     """
     # Ingeniería de características temporales
-    if 'createdAt' in df.columns:
-        df['createdAt'] = pd.to_datetime(df['createdAt'])
-        df['hour'] = df['createdAt'].dt.hour
-        df['day_of_week'] = df['createdAt'].dt.dayofweek
+    if 'sensor_timestamp' in df.columns:
+        df['sensor_timestamp'] = pd.to_datetime(df['sensor_timestamp'])
+        df['hour'] = df['sensor_timestamp'].dt.hour
+        df['day_of_week'] = df['sensor_timestamp'].dt.dayofweek
 
     # Lista de características que usará el modelo
     features = [
@@ -45,7 +45,7 @@ def preprocess_data(df, is_training=True):
 
     if is_training:
         # Ordena por nodo y fecha para que el `shift` sea correcto.
-        df = df.sort_values(by=['node_id', 'createdAt'])
+        df = df.sort_values(by=['node_id', 'sensor_timestamp'])
         
         # Genera el target: la humedad de la siguiente lectura para el mismo nodo.
         df['humidity_future'] = df.groupby('node_id')['humidity_percent'].shift(-1)

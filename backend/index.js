@@ -501,7 +501,7 @@ app.post("/api/readings", async (req, res) => {
       humidity_percent,
       rssi,
       sampling_interval,
-      sensor_timestamp
+      sensor_timestamp // ISO String desde el ESP32
     } = req.body;
 
     // Validaciones 
@@ -520,7 +520,7 @@ app.post("/api/readings", async (req, res) => {
     }
 
     // Guardar 
-    await Reading.create({
+    const newReading = await Reading.create({
       node_id,
       raw_value,
       voltage,
@@ -539,7 +539,7 @@ app.post("/api/readings", async (req, res) => {
         humidity: humidity_percent,
         rssi,
         voltage,
-        createdAt: new Date()
+        sensor_timestamp: newReading.sensor_timestamp
       });
       io.to(room).emit('node:online', { nodeId: node_id });
     }
@@ -591,7 +591,7 @@ app.get("/api/nodes/:nodeId", async (req, res) => {
 
 /**
  * Obtiene métricas de latencia del sistema para análisis de rendimiento.
- * Calcula la latencia como: createdAt - sensor_timestamp.
+ * Calcula la latencia de ingestión (createdAt - sensor_timestamp).
  * Requiere autenticación.
  * @route GET /api/readings/latency
  * @param {number} [req.query.period] - Periodo en minutos (default: 15).
@@ -616,7 +616,7 @@ app.get("/api/readings/latency", authenticateToken, async (req, res) => {
       {
         $match: {
           node_id: { $in: nodeIds },      // Solo lecturas de mis nodos
-          createdAt: { $gte: startDate }  // Solo dentro del periodo
+          createdAt: { $gte: startDate }  // Solo dentro del periodo de ingestión
         }
       },
       {
@@ -647,7 +647,7 @@ app.get("/api/readings/last/:nodeId", async (req, res) => {
   try {
     const { nodeId } = req.params;
     // Buscar la lectura más reciente en MongoDB.
-    const reading = await Reading.findOne({ node_id: nodeId }).sort({ createdAt: -1 });
+    const reading = await Reading.findOne({ node_id: nodeId }).sort({ sensor_timestamp: -1 });
     
     // Si no se encuentra ninguna lectura, devuelve null. El frontend manejará este caso.
     res.json(reading || null);
@@ -675,12 +675,12 @@ app.get("/api/readings/history/:nodeId", async (req, res) => {
 
     const matchStage = { node_id: nodeId };
     if (from) {
-      matchStage.createdAt = { $gte: new Date(from) };
+      matchStage.sensor_timestamp = { $gte: new Date(from) };
     }
 
     // Si no se especifica un rango, devuelve datos crudos (limitado por rendimiento).
     if (!range) {
-      const readings = await Reading.find(matchStage).sort({ createdAt: 1 }).limit(1000);
+      const readings = await Reading.find(matchStage).sort({ sensor_timestamp: 1 }).limit(1000);
       return res.json(readings);
     }
 
@@ -691,29 +691,29 @@ app.get("/api/readings/history/:nodeId", async (req, res) => {
       case '30d':
         // Agrupar por día.
         groupBy = {
-          year: { $year: "$createdAt" },
-          month: { $month: "$createdAt" },
-          day: { $dayOfMonth: "$createdAt" },
+          year: { $year: "$sensor_timestamp" },
+          month: { $month: "$sensor_timestamp" },
+          day: { $dayOfMonth: "$sensor_timestamp" },
         };
         break;
       case '7d':
         // Agrupar por hora.
         groupBy = {
-          year: { $year: "$createdAt" },
-          month: { $month: "$createdAt" },
-          day: { $dayOfMonth: "$createdAt" },
-          hour: { $hour: "$createdAt" },
+          year: { $year: "$sensor_timestamp" },
+          month: { $month: "$sensor_timestamp" },
+          day: { $dayOfMonth: "$sensor_timestamp" },
+          hour: { $hour: "$sensor_timestamp" },
         };
         break;
       case '24h':
       default:
         // Agrupar por intervalos de 10 minutos.
         groupBy = {
-          year: { $year: "$createdAt" },
-          month: { $month: "$createdAt" },
-          day: { $dayOfMonth: "$createdAt" },
-          hour: { $hour: "$createdAt" },
-          minute: { $subtract: [ { $minute: "$createdAt" }, { $mod: [{ $minute: "$createdAt" }, 10] }] }
+          year: { $year: "$sensor_timestamp" },
+          month: { $month: "$sensor_timestamp" },
+          day: { $dayOfMonth: "$sensor_timestamp" },
+          hour: { $hour: "$sensor_timestamp" },
+          minute: { $subtract: [ { $minute: "$sensor_timestamp" }, { $mod: [{ $minute: "$sensor_timestamp" }, 10] }] }
         };
         break;
     }
@@ -728,7 +728,7 @@ app.get("/api/readings/history/:nodeId", async (req, res) => {
       },
       {
         $addFields: {
-          createdAt: {
+          sensor_timestamp: {
             $dateFromParts: {
               year: "$_id.year", month: "$_id.month", day: "$_id.day",
               hour: { $ifNull: ["$_id.hour", 0] },
@@ -738,7 +738,7 @@ app.get("/api/readings/history/:nodeId", async (req, res) => {
         }
       },
       { $project: { _id: 0 } },
-      { $sort: { createdAt: 1 } }
+      { $sort: { sensor_timestamp: 1 } }
     ];
 
     const readings = await Reading.aggregate(pipeline);

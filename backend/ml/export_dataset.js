@@ -17,7 +17,7 @@ async function generateCSV() {
         console.log('Conectado. Descargando lecturas...');
 
         // Obtener todos los documentos de la colección 'readings' en MongoDB
-        const readings = await Reading.find({}).sort({ createdAt: 1 });
+        const readings = await Reading.find({}).sort({ sensor_timestamp: 1 });
 
         if (readings.length === 0) {
             console.log('La colección "readings" está vacía.');
@@ -27,7 +27,7 @@ async function generateCSV() {
         // Definir cabeceras (deben coincidir con lo que espera utils.py en Python)
         const headers = [
             'node_id',
-            'createdAt',
+            'sensor_timestamp',
             'humidity_percent',
             'raw_value',
             'rssi',
@@ -40,7 +40,7 @@ async function generateCSV() {
 
         readings.forEach(data => {
             // Convertir Timestamp a ISO String para que Pandas lo entienda correctamente
-            const dateStr = data.createdAt ? new Date(data.createdAt).toISOString() : '';
+            const dateStr = data.sensor_timestamp ? new Date(data.sensor_timestamp).toISOString() : '';
 
             const row = [
                 data.node_id,
