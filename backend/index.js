@@ -19,6 +19,7 @@ const { Server } = require("socket.io");
 const { execFile, exec } = require('child_process');
 const cron = require('node-cron');
 const path = require('path');
+const fs = require('fs');
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Reading = require('./models/Reading');
@@ -30,7 +31,11 @@ const { generateSoilAnalysis } = require('./services/aiService');
 // CONFIGURACIÓN DE LA APP
 // =============================================================================
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "*", // Permite acceso desde cualquier origen (útil para PWA/móvil)
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json());
 
 // Configuración del servidor HTTP y Socket.IO
@@ -806,6 +811,12 @@ app.post("/api/predict", (req, res) => {
   }
 
   const scriptPath = path.join(__dirname, 'ml', 'server.py');
+
+  // Verificación de seguridad: asegurar que el script existe antes de ejecutarlo
+  if (!fs.existsSync(scriptPath)) {
+    console.error(`[ERROR] Script de ML no encontrado en: ${scriptPath}`);
+    return res.status(500).json({ error: "Error de configuración: Script de predicción no encontrado en el servidor." });
+  }
   
   // Argumentos en el orden que espera server.py.
   const args = [
