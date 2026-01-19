@@ -67,7 +67,7 @@ export default function Login() {
         className="absolute inset-0 w-full h-full object-cover opacity-30"
       >
         <source
-          src="https://cdn.pixabay.com/video/2020/07/15/44765-440000959_large.mp4"
+          src="/mp4/44765-440000959_large.mp4"
           type="video/mp4"
         />
       </video>
