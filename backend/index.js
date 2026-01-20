@@ -39,11 +39,12 @@ app.use(express.json());
    CORS EXPRESS
 ======================== */
 app.use(cors({
-  origin: "https://wikiclone.info",
+  origin: true,
   credentials: true,
-  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization"]
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+app.options("*", cors());
 
 /* ========================
    SERVIDOR HTTP
@@ -55,9 +56,8 @@ const server = http.createServer(app);
 ======================== */
 const io = new Server(server, {
   cors: {
-    origin: true, // Permite conexión de socket desde cualquier IP
-    credentials: true,
-    methods: ["GET", "POST"]
+    origin: true,
+    credentials: true
   },
   transports: ["polling"]
 });

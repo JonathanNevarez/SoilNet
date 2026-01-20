@@ -12,13 +12,9 @@ export const initiateSocketConnection = (token) => {
 
   socket = io(API_URL, {
     auth: { token },
-    transports: ['polling'], // 🔥 SOLO polling en Render
+    transports: ["polling"],
     withCredentials: true,
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1500,
-    reconnectionDelayMax: 10000,
-    timeout: 20000,
+    timeout: 20000
   });
 
   socket.on("connect", () => {
