@@ -39,7 +39,7 @@ app.use(express.json());
    CORS EXPRESS
 ======================== */
 app.use(cors({
-  origin: true,
+  origin: ["https://wikiclone.info", "http://localhost:5173"],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
