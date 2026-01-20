@@ -16,7 +16,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const http = require("http");
 const { Server } = require("socket.io");
-const { execFile, exec } = require('child_process');
+const { execFile, exec, spawn } = require('child_process');
 const cron = require('node-cron');
 const path = require('path');
 const fs = require('fs');
@@ -840,7 +840,7 @@ app.post("/api/predict", async (req, res) => {
       return res.status(500).json({ error: "Motor de predicción no disponible" });
     }
 
-    const pythonCmd = process.platform === "win32" ? "python" : "python3";
+    const pythonCmd = "python";
 
     const py = spawn(pythonCmd, [
       scriptPath,
