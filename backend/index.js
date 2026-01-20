@@ -59,7 +59,7 @@ const io = new Server(server, {
     credentials: true,
     methods: ["GET", "POST"]
   },
-  transports: ["websocket", "polling"]
+  transports: ["polling"]
 });
 
 /**
