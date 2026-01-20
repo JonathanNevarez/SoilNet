@@ -63,15 +63,17 @@ const corsOriginResolver = (origin, callback) => {
   return callback(null, true); // En desarrollo/pruebas, permitir todo si falla lo anterior (opcional, ajustar para prod estricto)
 };
 
-app.use(cors({
+const corsOptions = {
   origin: corsOriginResolver,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Habilitar pre-flight requests para todas las rutas (Soluciona problemas de CORS en POST complejos)
-app.options(/(.*)/, cors());
+app.options("*", cors(corsOptions));
 
 /* ========================
    SERVIDOR HTTP
