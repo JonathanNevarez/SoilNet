@@ -45,9 +45,6 @@ app.use(cors({
   allowedHeaders: ["Content-Type","Authorization"]
 }));
 
-// Preflight para todas las rutas
-app.options("/*", cors());
-
 /* ========================
    SERVIDOR HTTP
 ======================== */
