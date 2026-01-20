@@ -15,6 +15,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const http = require("http");
+const { Server } = require("socket.io");
 const { execFile, exec } = require('child_process');
 const cron = require('node-cron');
 const path = require('path');
@@ -78,6 +79,27 @@ app.use((req, res, next) => {
    SERVIDOR HTTP
 ======================== */
 const server = http.createServer(app);
+
+// ================= SOCKET IO =================
+const io = new Server(server, {
+  cors: {
+    origin: [
+      "https://wikiclone.info",
+      "https://www.wikiclone.info",
+      "http://localhost:5173"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+io.on("connection", (socket) => {
+  console.log("🟢 Cliente conectado:", socket.id);
+
+  socket.on("disconnect", () => {
+    console.log("🔴 Cliente desconectado:", socket.id);
+  });
+});
 
 
 /**
@@ -571,6 +593,16 @@ app.post("/api/readings", async (req, res) => {
       rssi,
       sampling_interval,
       sensor_timestamp: new Date(sensor_timestamp)
+    });
+    
+    io.emit("reading:new", {
+      nodeId: cleanNodeId,
+      humidity_percent,
+      raw_value,
+      voltage,
+      rssi,
+      sampling_interval,
+      sensor_timestamp
     });
 
     res.status(201).json({ message: "Lectura guardada correctamente" });

@@ -1,19 +1,40 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from "react";
+import { socket } from "../services/socket";
 
-const SocketContext = createContext();
-
-export const useSocket = () => useContext(SocketContext);
+const SocketContext = createContext(null);
 
 export const SocketProvider = ({ children }) => {
-  const [socket, setSocket] = useState(null);
+  const [connected, setConnected] = useState(socket.connected);
 
-  // Socket desactivado: Modo Polling activado en hooks
+  useEffect(() => {
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+    };
+  }, []);
+
+  const value = {
+    socket,
+    connected
+  };
 
   return (
-    <SocketContext.Provider value={{ socket }}>
+    <SocketContext.Provider value={value}>
       {children}
     </SocketContext.Provider>
   );
 };
 
-export default SocketProvider;
+export const useSocket = () => {
+  const ctx = useContext(SocketContext);
+  if (!ctx) {
+    throw new Error("useSocket debe usarse dentro de SocketProvider");
+  }
+  return ctx;
+};

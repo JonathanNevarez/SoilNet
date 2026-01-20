@@ -2,85 +2,133 @@ import { useState, useEffect } from "react";
 import { getUserNodes } from "../services/nodes.service";
 import { getLastReadingByNode } from "../services/readings.service";
 import { getCurrentUser } from "../services/authService";
+import { useSocket } from "../services/SocketContext";
 
 /**
  * @file useNodesRealtime.js
  * @brief Hook personalizado para la gestión y sincronización de nodos en tiempo real.
- */
-
-/**
- * Obtiene la lista de nodos del usuario y mantiene sus estados actualizados
- * mediante suscripciones a eventos de WebSockets.
  *
- * @returns {object} Objeto que contiene:
- * - nodes: Array de nodos con información enriquecida (lecturas, estado online).
- * - loading: Booleano que indica si la carga inicial está en proceso.
+ * AHORA:
+ * - Carga inicial por REST
+ * - Actualización en tiempo real SOLO por SOCKET
+ * - Cero polling pesado
  */
 export function useNodesRealtime() {
   const [nodes, setNodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
 
-  // Inicialización del usuario actual
+  const { socket } = useSocket();
+
+  // ===========================
+  // 1. Obtener usuario actual
+  // ===========================
   useEffect(() => {
     const u = getCurrentUser();
     setUser(u || null);
   }, []);
 
-  // Carga inicial de datos de nodos y enriquecimiento con últimas lecturas
+  // ===========================
+  // 2. Carga inicial por REST
+  // ===========================
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
 
-    const loadData = async (isBackground = false) => {
+    const loadData = async () => {
       try {
-        if (!isBackground) setLoading(true);
+        setLoading(true);
+
         const userNodes = await getUserNodes(user.uid);
 
         const enrichedNodes = await Promise.all(
           userNodes.map(async (node) => {
             try {
-              // Intentamos obtener la última lectura
               const lastReading = await getLastReadingByNode(node.nodeId);
-              if (!lastReading) return { ...node, lastReading: null, online: false };
+
+              if (!lastReading) {
+                return { ...node, lastReading: null, online: false };
+              }
 
               const lastTime = new Date(lastReading.createdAt).getTime();
-              const online = Date.now() - lastTime < 35000; // 35 segundos
+              const online = Date.now() - lastTime < 35000;
 
               return { ...node, lastReading, online };
+
             } catch (err) {
+              console.error("Error cargando última lectura:", err);
               return { ...node, lastReading: null, online: false };
             }
           })
         );
 
         setNodes(enrichedNodes);
+
       } catch (err) {
+        console.error("Error cargando nodos:", err);
       } finally {
-        if (!isBackground) setLoading(false);
+        setLoading(false);
       }
     };
 
     loadData();
-    // Restaurado el intervalo de 30s para actualización periódica (Polling)
-    const interval = setInterval(() => loadData(true), 30000);
-    return () => clearInterval(interval);
   }, [user]);
 
-  // Intervalo local solo para actualizar el estado "online/offline" visualmente
-  // (No hace peticiones a la red, solo chequea la última hora de lectura en memoria)
+  // =====================================
+  // 3. SOCKET → ACTUALIZACIÓN EN TIEMPO REAL
+  // =====================================
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewReading = (data) => {
+      console.log("📡 Nueva lectura por socket:", data);
+
+      setNodes((prev) =>
+        prev.map((node) => {
+          if (node.nodeId !== data.nodeId) return node;
+
+          const lastReading = {
+            humidity_percent: data.humidity_percent,
+            raw_value: data.raw_value,
+            voltage: data.voltage,
+            rssi: data.rssi,
+            sampling_interval: data.sampling_interval,
+            createdAt: data.sensor_timestamp,
+          };
+
+          return {
+            ...node,
+            lastReading,
+            online: true,
+          };
+        })
+      );
+    };
+
+    socket.on("reading:new", handleNewReading);
+
+    return () => {
+      socket.off("reading:new", handleNewReading);
+    };
+  }, [socket]);
+
+  // =====================================
+  // 4. SOLO CÁLCULO LOCAL DE ONLINE/OFFLINE
+  // (Sin peticiones a red)
+  // =====================================
   useEffect(() => {
     const interval = setInterval(() => {
       setNodes((prev) =>
         prev.map((node) => {
           if (!node.lastReading) return { ...node, online: false };
 
-          // Calculamos el tiempo transcurrido desde la última lectura
-          // Usamos new Date() para asegurar compatibilidad con strings ISO
-          const lastTime = new Date(node.lastReading.createdAt || node.lastReading.sensor_timestamp).getTime();
-          // Tolerancia: 35 segundos
+          const lastTime = new Date(
+            node.lastReading.createdAt ||
+            node.lastReading.sensor_timestamp
+          ).getTime();
+
           const online = Date.now() - lastTime < 35000;
 
           return { ...node, online };
