@@ -15,7 +15,6 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const http = require("http");
-const { Server } = require("socket.io");
 const { execFile, exec } = require('child_process');
 const cron = require('node-cron');
 const path = require('path');
@@ -52,8 +51,20 @@ const allowedOrigins = [
   "http://localhost:5173", // Para desarrollo local
 ].filter(Boolean); // Elimina valores nulos/undefined
 
+// Función dinámica para validar origen (Soporte para Vercel y dominios personalizados)
+const corsOriginResolver = (origin, callback) => {
+  // Permitir peticiones sin origen (como apps móviles o Postman)
+  if (!origin) return callback(null, true);
+  
+  if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+    return callback(null, true);
+  }
+  
+  return callback(null, true); // En desarrollo/pruebas, permitir todo si falla lo anterior (opcional, ajustar para prod estricto)
+};
+
 app.use(cors({
-  origin: allowedOrigins,
+  origin: corsOriginResolver,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
@@ -64,19 +75,6 @@ app.use(cors({
 ======================== */
 const server = http.createServer(app);
 
-/* ========================
-   SOCKET.IO
-======================== */
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins, // Usar la misma lista segura que Express
-    credentials: true,
-    methods: ["GET", "POST"]
-  },
-  transports: ["websocket", "polling"],
-  pingTimeout: 60000, // Aumentado a 60s para evitar desconexiones en Render
-  connectTimeout: 45000 // Mayor tolerancia para la conexión inicial
-});
 
 /**
  * Clave secreta para JWT. Se utiliza para firmar y verificar JSON Web Tokens.
@@ -557,6 +555,9 @@ app.post("/api/readings", async (req, res) => {
       return res.status(403).json({ error: "Nodo no registrado" });
     }
 
+    // DEBUG: Verificar si Mongoose está recuperando el ownerUid correctamente
+    console.log(`[DEBUG] Procesando lectura para nodo: ${cleanNodeId}. OwnerUID encontrado:`, node.ownerUid);
+
     // Guardar 
     const newReading = await Reading.create({
       node_id: cleanNodeId,
@@ -567,20 +568,6 @@ app.post("/api/readings", async (req, res) => {
       sampling_interval,
       sensor_timestamp: new Date(sensor_timestamp)
     });
-
-    // --- SOCKET.IO: EMISIÓN DE EVENTOS EN TIEMPO REAL ---
-    // Si el nodo tiene un dueño asignado, notificamos a su sala privada
-    if (node.ownerUid) {
-      const room = node.ownerUid.toString();
-      io.to(room).emit('reading:new', {
-        nodeId: cleanNodeId.trim(), // Asegurar trim
-        humidity: humidity_percent,
-        rssi,
-        voltage,
-        sensor_timestamp: newReading.sensor_timestamp
-      });
-      io.to(room).emit('node:online', { nodeId: cleanNodeId });
-    }
 
     res.status(201).json({ message: "Lectura guardada correctamente" });
 
@@ -938,35 +925,6 @@ app.post("/api/ai/assistant", authenticateToken, async (req, res) => {
 // =============================================================================
 // TAREAS PROGRAMADAS
 // =============================================================================
-
-// =============================================================================
-// SOCKET.IO CONFIGURACIÓN Y EVENTOS
-// =============================================================================
-
-// Middleware: Verificar JWT antes de permitir la conexión del socket
-io.use((socket, next) => {
-  // Verificar token en auth (estándar) o query (fallback para mayor compatibilidad)
-  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
-  
-  if (!token) return next(new Error("Authentication error: Token required"));
-  
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return next(new Error("Authentication error: Invalid token"));
-    socket.user = decoded; // Guardamos datos del usuario en el socket
-    next();
-  });
-});
-
-io.on("connection", (socket) => {
-  // Unir al usuario a una sala privada con su UID
-  if (socket.user && socket.user.uid) {
-    console.log(`[Socket] Usuario conectado: ${socket.user.email} (${socket.id})`);
-    socket.join(socket.user.uid);
-  }
-
-  socket.on("disconnect", () => {
-  });
-});
 
 /**
  * Tarea cron programada para el reentrenamiento semanal del modelo.
