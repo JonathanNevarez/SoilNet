@@ -3,6 +3,7 @@ import { getUserNodes } from "../services/nodes.service";
 import { getCurrentUser } from "../services/authService";
 import { getLastReadingByNode } from "../services/readings.service";
 import { computeNodeAlerts } from "../utils/nodeAlerts";
+import { useSocket } from "../services/SocketContext";
 
 /**
  * @file useNodesDashboard.js
@@ -18,6 +19,7 @@ import { computeNodeAlerts } from "../utils/nodeAlerts";
 export function useNodesDashboard() {
   const [nodes, setNodes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { socket } = useSocket();
 
   // Carga inicial y procesamiento de métricas derivadas (alertas, promedios)
   useEffect(() => {
@@ -81,6 +83,58 @@ export function useNodesDashboard() {
     const interval = setInterval(() => loadNodes(true), 30000); // Actualizar cada 30s
     return () => clearInterval(interval);
   }, []);
+
+  // Manejo de eventos WebSocket para actualizaciones dinámicas
+  useEffect(() => {
+    if (!socket || loading) return;
+
+    const handleNewReading = (data) => {
+      setNodes((prev) =>
+        prev.map((node) => {
+          if (node.nodeId !== data.nodeId) return node;
+
+          const newReading = {
+            humidity_percent: data.humidity,
+            rssi: data.rssi,
+            createdAt: data.createdAt || new Date().toISOString(),
+            sampling_interval: data.sampling_interval ?? 5,
+          };
+
+          const lecturas = [...(node.lecturas || []), newReading].slice(-50);
+          const promedio =
+            lecturas.reduce((sum, r) => sum + r.humidity_percent, 0) / lecturas.length;
+
+          const alerts = computeNodeAlerts(newReading, node.soil_type);
+
+          return {
+            ...node,
+            lecturas,
+            lastHumidity: data.humidity,
+            rssi: data.rssi,
+            online: true,
+            alertsCount: alerts.length,
+            promedio,
+          };
+        })
+      );
+    };
+
+    const handleNodeOnline = ({ nodeId }) =>
+      setNodes((prev) => prev.map(n => n.nodeId === nodeId ? { ...n, online: true } : n));
+
+    const handleNodeOffline = ({ nodeId }) =>
+      setNodes((prev) => prev.map(n => n.nodeId === nodeId ? { ...n, online: false } : n));
+
+    socket.on("reading:new", handleNewReading);
+    socket.on("node:online", handleNodeOnline);
+    socket.on("node:offline", handleNodeOffline);
+
+    return () => {
+      socket.off("reading:new", handleNewReading);
+      socket.off("node:online", handleNodeOnline);
+      socket.off("node:offline", handleNodeOffline);
+    };
+  }, [socket, loading]);
 
   // Verificación periódica de inactividad de sensores
   useEffect(() => {

@@ -36,71 +36,31 @@ const app = express();
 app.use(express.json());
 
 /* ========================
-   CONFIGURACIÓN PROXY (RENDER)
-======================== */
-// Necesario para que Express confíe en el balanceador de carga de Render (HTTPS)
-app.set('trust proxy', 1);
-
-/* ========================
    CORS EXPRESS
 ======================== */
-const allowedOrigins = [
-  "https://wikiclone.info",
-  "https://www.wikiclone.info",
-  "http://localhost:5173"
-].filter(Boolean);
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-
-  // RESPUESTA INMEDIATA A PREFLIGHT
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
-
-  next();
-});
+app.use(cors({
+  origin: true, // Permite cualquier origen dinámicamente (útil para desarrollo/red local)
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
 /* ========================
    SERVIDOR HTTP
 ======================== */
 const server = http.createServer(app);
 
-// ================= SOCKET IO =================
+/* ========================
+   SOCKET.IO
+======================== */
 const io = new Server(server, {
   cors: {
-    origin: [
-      "https://wikiclone.info",
-      "https://www.wikiclone.info",
-      "http://localhost:5173"
-    ],
-    methods: ["GET", "POST"],
-    credentials: true
-  }
+    origin: true, // Permite conexión de socket desde cualquier IP
+    credentials: true,
+    methods: ["GET", "POST"]
+  },
+  transports: ["websocket", "polling"]
 });
-
-io.on("connection", (socket) => {
-  console.log("🟢 Cliente conectado:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("🔴 Cliente desconectado:", socket.id);
-  });
-});
-
 
 /**
  * Clave secreta para JWT. Se utiliza para firmar y verificar JSON Web Tokens.
@@ -581,9 +541,6 @@ app.post("/api/readings", async (req, res) => {
       return res.status(403).json({ error: "Nodo no registrado" });
     }
 
-    // DEBUG: Verificar si Mongoose está recuperando el ownerUid correctamente
-    console.log(`[DEBUG] Procesando lectura para nodo: ${cleanNodeId}. OwnerUID encontrado:`, node.ownerUid);
-
     // Guardar 
     const newReading = await Reading.create({
       node_id: cleanNodeId,
@@ -594,16 +551,20 @@ app.post("/api/readings", async (req, res) => {
       sampling_interval,
       sensor_timestamp: new Date(sensor_timestamp)
     });
-    
-    io.emit("reading:new", {
-      nodeId: cleanNodeId,
-      humidity_percent,
-      raw_value,
-      voltage,
-      rssi,
-      sampling_interval,
-      sensor_timestamp
-    });
+
+    // --- SOCKET.IO: EMISIÓN DE EVENTOS EN TIEMPO REAL ---
+    // Si el nodo tiene un dueño asignado, notificamos a su sala privada
+    if (node.ownerUid) {
+      const room = node.ownerUid.toString();
+      io.to(room).emit('reading:new', {
+        nodeId: cleanNodeId.trim(), // Asegurar trim
+        humidity: humidity_percent,
+        rssi,
+        voltage,
+        sensor_timestamp: newReading.sensor_timestamp
+      });
+      io.to(room).emit('node:online', { nodeId: cleanNodeId });
+    }
 
     res.status(201).json({ message: "Lectura guardada correctamente" });
 
@@ -891,29 +852,13 @@ app.post("/api/predict", (req, res) => {
     day_of_week
   ];
 
-  // Determinar el comando según el SO y entorno
-  let pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
-
-  // Adaptación para Render: Verificar si existe el entorno virtual de Python
-  const renderPythonPath = '/opt/render/project/src/.venv/bin/python';
-  if (process.platform !== 'win32' && fs.existsSync(renderPythonPath)) {
-    pythonCommand = renderPythonPath;
-  }
-
-  // Permitir override manual mediante variable de entorno
-  if (process.env.PYTHON_PATH) {
-    pythonCommand = process.env.PYTHON_PATH;
-  }
-
-  console.log(`[ML] Ejecutando predicción con: ${pythonCommand}`);
+  // Determinar el comando según el SO: 'python' en Windows, 'python3' en Linux (Render)
+  const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
 
   // Ejecutar el script de Python
-  // Aumentamos maxBuffer a 10MB para evitar crash por exceso de logs/warnings de Pandas
-  execFile(pythonCommand, [scriptPath, ...args], { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+  execFile(pythonCommand, [scriptPath, ...args], (error, stdout, stderr) => {
     if (error) {
-      console.error("❌ Error CRÍTICO ejecutando Python:", error.message);
-      // Mostrar stderr para ver si falta alguna librería en los logs de Render
-      if (stderr) console.error("🐍 Python stderr (Logs):", stderr);
+      console.error("Error ejecutando el modelo:", error);
       return res.status(500).json({ error: "Error al ejecutar el modelo predictivo" });
     }
 

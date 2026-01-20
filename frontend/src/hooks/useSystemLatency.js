@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSocket } from "../services/SocketContext";
 
 /**
  * @file useSystemLatency.js
@@ -17,6 +18,7 @@ export function useSystemLatency(nodes) {
   const [latencyData, setLatencyData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { socket } = useSocket();
 
   // Filtrado de nodos activos para contexto
   const activeNodes = nodes.filter(n => n.status === "online" || n.online);
@@ -48,9 +50,21 @@ export function useSystemLatency(nodes) {
     };
 
     fetchLatency();
-    const interval = setInterval(fetchLatency, 30000); // Actualizar cada 30s
-    return () => clearInterval(interval);
-  }, [period]);
+
+    if (!socket) return;
+
+    const handleNewReading = (data) => {
+      const newPoint = {
+        createdAt: new Date().toISOString(),
+        latency_ms: Number(data.latency_ms || data.latency || 0),
+      };
+      const MAX_POINTS = 100;
+      setLatencyData(prev => [...prev, newPoint].slice(-MAX_POINTS));
+    };
+
+    socket.on("reading:new", handleNewReading);
+    return () => socket.off("reading:new", handleNewReading);
+  }, [period, socket]);
 
   // Cálculo memoizado de estadísticas de latencia
   const metrics = useMemo(() => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getNodeById } from "../services/nodes.service";
 import { getLastReadingByNode, getReadingsHistory } from "../services/readings.service";
+import { useSocket } from "../services/SocketContext";
 
 /**
  * @file useNodeDetailRealtime.js
@@ -15,6 +16,8 @@ import { getLastReadingByNode, getReadingsHistory } from "../services/readings.s
  * @returns {object} Datos del nodo, última lectura, historial y funciones de control.
  */
 export function useNodeDetailRealtime(nodeId) {
+  const { socket } = useSocket();
+
   const [node, setNode] = useState(null);
   const [lastReading, setLastReading] = useState(null);
   const [history, setHistory] = useState([]);
@@ -70,6 +73,29 @@ export function useNodeDetailRealtime(nodeId) {
     } catch (err) {
     }
   };
+
+  // Suscripción a actualizaciones en tiempo real específicas para este nodo
+  useEffect(() => {
+    if (!socket || !nodeId) return;
+
+    const handleNewReading = (data) => {
+      if (data.nodeId !== nodeId) return;
+
+      const newReading = {
+        humidity_percent: data.humidity,
+        rssi: data.rssi,
+        voltage: data.voltage,
+        createdAt: data.createdAt || new Date().toISOString(),
+        sampling_interval: data.sampling_interval ?? 30,
+      };
+
+      setLastReading(newReading);
+      setHistory(prev => [...prev, newReading].slice(-50));
+    };
+
+    socket.on("reading:new", handleNewReading);
+    return () => socket.off("reading:new", handleNewReading);
+  }, [socket, nodeId]);
 
   // Verificación de estado de conexión basada en el intervalo de muestreo
   useEffect(() => {
