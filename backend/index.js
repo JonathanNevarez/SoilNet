@@ -39,10 +39,10 @@ app.use(express.json());
    CORS EXPRESS
 ======================== */
 app.use(cors({
-  origin: true, // Permite cualquier origen dinámicamente (útil para desarrollo/red local)
+  origin: "https://wikiclone.info",
   credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type","Authorization"]
 }));
 
 /* ========================
