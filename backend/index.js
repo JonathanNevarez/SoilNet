@@ -46,7 +46,7 @@ app.use(cors({
 }));
 
 // Preflight para todas las rutas
-app.options("*", cors());
+app.options("/*", cors());
 
 /* ========================
    SERVIDOR HTTP
@@ -881,7 +881,7 @@ app.post("/api/predict", (req, res) => {
   });
 });
 
-/**
+/** 
  * Endpoint para el Asistente IA (SoilNet AI Assistant).
  * Analiza datos del nodo y responde preguntas usando Groq.
  * Requiere autenticación.
