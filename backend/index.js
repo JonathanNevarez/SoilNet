@@ -44,7 +44,6 @@ app.use(cors({
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
-app.options("*", cors());
 
 /* ========================
    SERVIDOR HTTP
@@ -59,7 +58,7 @@ const io = new Server(server, {
     origin: true,
     credentials: true
   },
-  transports: ["polling"]
+  transports: ["websocket", "polling"]
 });
 
 /**

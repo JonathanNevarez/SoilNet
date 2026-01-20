@@ -1,4 +1,4 @@
-import { io } from 'socket.io-client';
+import { io } from "socket.io-client";
 
 let socket;
 
@@ -12,7 +12,7 @@ export const initiateSocketConnection = (token) => {
 
   socket = io(API_URL, {
     auth: { token },
-    transports: ["polling"],
+    transports: ["websocket", "polling"], // 🔥 IMPORTANTE
     withCredentials: true,
     timeout: 20000
   });
