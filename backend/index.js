@@ -71,7 +71,7 @@ app.use(cors({
 }));
 
 // Habilitar pre-flight requests para todas las rutas (Soluciona problemas de CORS en POST complejos)
-app.options('*', cors());
+app.options(/(.*)/, cors());
 
 /* ========================
    SERVIDOR HTTP
