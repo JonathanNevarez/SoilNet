@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { getUserNodes } from "../services/nodes.service";
 import { getLastReadingByNode } from "../services/readings.service";
-import { useSocket } from "../services/SocketContext";
 import { getCurrentUser } from "../services/authService";
 
 /**
@@ -21,7 +20,6 @@ export function useNodesRealtime() {
   const [nodes, setNodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
-  const { socket } = useSocket();
 
   // Inicialización del usuario actual
   useEffect(() => {
@@ -66,77 +64,26 @@ export function useNodesRealtime() {
     };
 
     loadData();
-    const interval = setInterval(() => loadData(true), 30000); // Actualizar cada 30s
+    // Restaurado el intervalo de 30s para actualización periódica (Polling)
+    const interval = setInterval(() => loadData(true), 30000);
     return () => clearInterval(interval);
   }, [user]);
 
-  // Suscripción a eventos de socket para actualizaciones en tiempo real
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleNewReading = (data) => {
-      console.log("Socket: Nueva lectura recibida", data);
-      
-      setNodes((prev) =>
-        prev.map((node) => {
-          // Comparación robusta: asegurar que ambos sean strings y sin espacios
-          // Usamos toLowerCase() para evitar problemas de mayúsculas/minúsculas
-          if (String(node.nodeId).trim().toLowerCase() !== String(data.nodeId).trim().toLowerCase()) return node;
-
-          const newReading = {
-            humidity_percent: data.humidity,
-            rssi: data.rssi,
-            voltage: data.voltage,
-
-            createdAt: new Date().toISOString(), // Usar siempre la hora del cliente al recibir por socket
-
-            sampling_interval: data.sampling_interval || node.lastReading?.sampling_interval || 30,
-          };
-
-          // Al recibir datos en tiempo real, el nodo está DEFINITIVAMENTE online.
-          // Usamos Date.now() local para evitar desincronización de relojes.
-          const online = true;
-          // Actualizamos createdAt al tiempo local de recepción para la lógica de timeout
-
-          return { ...node, lastReading: newReading, online };
-        })
-      );
-    };
-
-    // Manejadores para eventos de estado (opcional, si el backend los envía)
-    const handleNodeOnline = (data) => {
-        console.log("Socket: Nodo online", data);
-        setNodes(prev => prev.map(n => n.nodeId === data.nodeId ? { ...n, online: true } : n));
-    };
-
-    const handleNodeOffline = (data) => {
-        console.log("Socket: Nodo offline", data);
-        setNodes(prev => prev.map(n => n.nodeId === data.nodeId ? { ...n, online: false } : n));
-    };
-
-    socket.on("reading:new", handleNewReading);
-    socket.on("node:online", handleNodeOnline);
-    
-    return () => {
-        socket.off("reading:new", handleNewReading);
-        socket.off("node:online", handleNodeOnline);
-    };
-  }, [socket]);
-
-  // Intervalo para verificar la expiración del estado 'online' (heartbeat check)
+  // Intervalo local solo para actualizar el estado "online/offline" visualmente
+  // (No hace peticiones a la red, solo chequea la última hora de lectura en memoria)
   useEffect(() => {
     const interval = setInterval(() => {
       setNodes((prev) =>
         prev.map((node) => {
-          if (!node.lastReading) return node;
+          if (!node.lastReading) return { ...node, online: false };
 
           // Calculamos el tiempo transcurrido desde la última lectura
-          const lastTime = new Date(node.lastReading.createdAt).getTime();
+          // Usamos new Date() para asegurar compatibilidad con strings ISO
+          const lastTime = new Date(node.lastReading.createdAt || node.lastReading.sensor_timestamp).getTime();
           // Tolerancia: 35 segundos
           const online = Date.now() - lastTime < 35000;
 
-          if (node.online !== online) return { ...node, online };
-          return node;
+          return { ...node, online };
         })
       );
     }, 5000);
