@@ -70,6 +70,9 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
+// Habilitar pre-flight requests para todas las rutas (Soluciona problemas de CORS en POST complejos)
+app.options('*', cors());
+
 /* ========================
    SERVIDOR HTTP
 ======================== */
@@ -862,8 +865,9 @@ app.post("/api/predict", (req, res) => {
   // Aumentamos maxBuffer a 10MB para evitar crash por exceso de logs/warnings de Pandas
   execFile(pythonCommand, [scriptPath, ...args], { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
     if (error) {
-      console.error("Error ejecutando el modelo:", error);
-      if (stderr) console.error("Python stderr:", stderr);
+      console.error("❌ Error CRÍTICO ejecutando Python:", error.message);
+      // Mostrar stderr para ver si falta alguna librería en los logs de Render
+      if (stderr) console.error("🐍 Python stderr (Logs):", stderr);
       return res.status(500).json({ error: "Error al ejecutar el modelo predictivo" });
     }
 

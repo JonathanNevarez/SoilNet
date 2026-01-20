@@ -24,7 +24,9 @@ export async function predictNodeHumidity(nodeData) {
     });
 
     if (!response.ok) {
-      throw new Error(`Error API: ${response.status}`);
+      // Si falla (502/500), no lanzamos error fatal, retornamos null para que la UI siga funcionando
+      console.warn(`[Predicción] El backend respondió con estado: ${response.status}`);
+      return null;
     }
 
     const data = await response.json();
