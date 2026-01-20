@@ -46,34 +46,33 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   "https://wikiclone.info",
   "https://www.wikiclone.info",
-  "https://soilnet-backend.onrender.com", // A veces necesario para self-ping
-  process.env.FRONTEND_URL,
-  "http://localhost:5173", // Para desarrollo local
-].filter(Boolean); // Elimina valores nulos/undefined
+  "http://localhost:5173"
+].filter(Boolean);
 
-// Función dinámica para validar origen (Soporte para Vercel y dominios personalizados)
-const corsOriginResolver = (origin, callback) => {
-  // Permitir peticiones sin origen (como apps móviles o Postman)
-  if (!origin) return callback(null, true);
-  
-  if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
-    return callback(null, true);
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
   }
-  
-  return callback(null, true); // En desarrollo/pruebas, permitir todo si falla lo anterior (opcional, ajustar para prod estricto)
-};
 
-const corsOptions = {
-  origin: corsOriginResolver,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-};
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
 
-app.use(cors(corsOptions));
+  // RESPUESTA INMEDIATA A PREFLIGHT
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
 
-// Habilitar pre-flight requests para todas las rutas (Soluciona problemas de CORS en POST complejos)
-app.options(/(.*)/, cors(corsOptions));
+  next();
+});
 
 /* ========================
    SERVIDOR HTTP
