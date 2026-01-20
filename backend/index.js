@@ -809,73 +809,79 @@ app.get("/api/users/:uid", async (req, res) => {
  * @param {number} req.body.hour
  * @param {number} req.body.day_of_week
  */
-app.post("/api/predict", (req, res) => {
-  const {
-    humidity_percent,
-    raw_value,
-    rssi,
-    voltage,
-    sampling_interval,
-    hour,
-    day_of_week
-  } = req.body;
+app.post("/api/predict", async (req, res) => {
+  try {
+    const {
+      humidity_percent,
+      raw_value,
+      rssi,
+      voltage,
+      sampling_interval,
+      hour,
+      day_of_week
+    } = req.body;
 
-  // Validar que todos los campos requeridos estén presentes.
-  if (
-    humidity_percent === undefined ||
-    raw_value === undefined ||
-    rssi === undefined ||
-    voltage === undefined ||
-    sampling_interval === undefined ||
-    hour === undefined ||
-    day_of_week === undefined
-  ) {
-    return res.status(400).json({ error: "Faltan datos para realizar la predicción" });
-  }
-
-  const scriptPath = path.join(__dirname, 'ml', 'server.py');
-
-  // Verificación de seguridad: asegurar que el script existe antes de ejecutarlo
-  if (!fs.existsSync(scriptPath)) {
-    console.error(`[ERROR] Script de ML no encontrado en: ${scriptPath}`);
-    return res.status(500).json({ error: "Error de configuración: Script de predicción no encontrado en el servidor." });
-  }
-  
-  // Argumentos en el orden que espera server.py.
-  const args = [
-    humidity_percent,
-    raw_value,
-    rssi,
-    voltage,
-    sampling_interval,
-    hour,
-    day_of_week
-  ];
-
-  // Determinar el comando según el SO: 'python' en Windows, 'python3' en Linux (Render)
-  const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
-
-  // Ejecutar el script de Python
-  execFile(pythonCommand, [scriptPath, ...args], (error, stdout, stderr) => {
-    if (error) {
-      console.error("Error ejecutando el modelo:", error);
-      return res.status(500).json({ error: "Error al ejecutar el modelo predictivo" });
+    if (
+      humidity_percent === undefined ||
+      raw_value === undefined ||
+      rssi === undefined ||
+      voltage === undefined ||
+      sampling_interval === undefined ||
+      hour === undefined ||
+      day_of_week === undefined
+    ) {
+      return res.status(400).json({ error: "Faltan datos para realizar la predicción" });
     }
 
-    try {
-      // Parsear la salida JSON del script de Python
-      const response = JSON.parse(stdout);
-      
-      if (response.error) {
-         return res.status(400).json(response);
+    const scriptPath = path.join(__dirname, "ml", "server.py");
+
+    if (!fs.existsSync(scriptPath)) {
+      console.error("[ERROR] server.py no encontrado:", scriptPath);
+      return res.status(500).json({ error: "Motor de predicción no disponible" });
+    }
+
+    const pythonCmd = process.platform === "win32" ? "python" : "python3";
+
+    const py = spawn(pythonCmd, [
+      scriptPath,
+      String(humidity_percent),
+      String(raw_value),
+      String(rssi),
+      String(voltage),
+      String(sampling_interval),
+      String(hour),
+      String(day_of_week)
+    ]);
+
+    let stdout = "";
+    let stderr = "";
+
+    py.stdout.on("data", d => stdout += d.toString());
+    py.stderr.on("data", d => stderr += d.toString());
+
+    py.on("error", err => {
+      console.error("Python spawn error:", err);
+      return res.status(500).json({ error: "Python no disponible en el servidor" });
+    });
+
+    py.on("close", code => {
+      if (code !== 0) {
+        console.error("Python error:", stderr);
+        return res.status(500).json({ error: "Error ejecutando modelo predictivo" });
       }
 
-      res.json(response);
-    } catch (parseError) {
-      console.error("Error parseando respuesta JSON:", stdout);
-      res.status(500).json({ error: "Respuesta inválida del modelo" });
-    }
-  });
+      try {
+        const parsed = JSON.parse(stdout.trim());
+        return res.json(parsed);
+      } catch (err) {
+        console.error("JSON inválido:", stdout);
+        return res.status(500).json({ error: "Respuesta inválida del modelo" });
+      }
+    });
+  } catch (err) {
+    console.error("Predict fatal:", err);
+    return res.status(500).json({ error: "Error interno inesperado" });
+  }
 });
 
 /** 
