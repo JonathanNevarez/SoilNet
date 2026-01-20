@@ -858,8 +858,21 @@ app.post("/api/predict", (req, res) => {
     day_of_week
   ];
 
-  // Determinar el comando según el SO: 'python' en Windows, 'python3' en Linux (Render)
-  const pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
+  // Determinar el comando según el SO y entorno
+  let pythonCommand = process.platform === 'win32' ? 'python' : 'python3';
+
+  // Adaptación para Render: Verificar si existe el entorno virtual de Python
+  const renderPythonPath = '/opt/render/project/src/.venv/bin/python';
+  if (process.platform !== 'win32' && fs.existsSync(renderPythonPath)) {
+    pythonCommand = renderPythonPath;
+  }
+
+  // Permitir override manual mediante variable de entorno
+  if (process.env.PYTHON_PATH) {
+    pythonCommand = process.env.PYTHON_PATH;
+  }
+
+  console.log(`[ML] Ejecutando predicción con: ${pythonCommand}`);
 
   // Ejecutar el script de Python
   // Aumentamos maxBuffer a 10MB para evitar crash por exceso de logs/warnings de Pandas
