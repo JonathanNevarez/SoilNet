@@ -3,7 +3,8 @@ import { io } from "socket.io-client";
 let socket;
 
 export const initiateSocketConnection = (token) => {
-  const API_URL = import.meta.env.VITE_API_URL || "https://soilnet-backend.onrender.com";
+  const RAW_API_URL = import.meta.env.VITE_API_URL || "https://soilnet-backend.onrender.com";
+  const API_URL = RAW_API_URL.replace(/\/api\/?$/, "");
 
   if (socket) {
     socket.disconnect();
