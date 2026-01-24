@@ -13,21 +13,21 @@ export const initiateSocketConnection = (token) => {
 
   socket = io(API_URL, {
     auth: { token },
-    transports: ["websocket", "polling"], // 🔥 IMPORTANTE
+    transports: ["polling", "websocket"],
     withCredentials: true,
     timeout: 20000
   });
 
   socket.on("connect", () => {
-    console.log("🟢 Socket conectado");
+    console.log("Socket conectado");
   });
 
   socket.on("connect_error", (err) => {
-    console.warn("🔴 Socket error:", err.message);
+    console.warn("Socket error:", err.message);
   });
 
   socket.on("disconnect", (reason) => {
-    console.log("🟠 Socket desconectado:", reason);
+    console.log("Socket desconectado:", reason);
   });
 
   return socket;
