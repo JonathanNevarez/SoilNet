@@ -30,7 +30,15 @@ const { generateSoilAnalysis } = require('./services/aiService');
 // =============================================================================
 // CONFIGURACIÓN DE LA APP
 // =============================================================================
-const FRONTEND_URL = process.env.FRONTEND_URL;
+const FRONTEND_URL = process.env.FRONTEND_URL || "";
+const EXTRA_CORS_ORIGINS = process.env.CORS_ORIGINS || "";
+const ALLOWED_ORIGINS = [
+  "https://wikiclone.info",
+  "https://www.wikiclone.info",
+  "http://localhost:5173",
+  ...FRONTEND_URL.split(",").map(s => s.trim()).filter(Boolean),
+  ...EXTRA_CORS_ORIGINS.split(",").map(s => s.trim()).filter(Boolean)
+];
 
 const app = express();
 app.use(express.json());
@@ -39,11 +47,16 @@ app.use(express.json());
    CORS EXPRESS
 ======================== */
 app.use(cors({
-  origin: ["https://wikiclone.info", "http://localhost:5173"],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    return callback(new Error(`CORS bloqueado para origen: ${origin}`));
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
+app.options("*", cors());
 
 /* ========================
    SERVIDOR HTTP
@@ -839,7 +852,7 @@ app.post("/api/predict", async (req, res) => {
       return res.status(500).json({ error: "Motor de predicción no disponible" });
     }
 
-    const pythonCmd = "python";
+    const pythonCmd = process.platform === "win32" ? "python" : "python3";
 
     const py = spawn(pythonCmd, [
       scriptPath,
