@@ -3,6 +3,7 @@ import { predictNodeHumidity } from '../services/predictionService';
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 const RETRY_COOLDOWN = 60 * 1000; // 1 minuto
+const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutos
 
 const SOIL_THRESHOLDS = {
   SANDY: { dry: 10, medium_max: 20, optimal_max: 30, excess: 30 },
@@ -16,6 +17,7 @@ export function usePredictions(nodes) {
   const cache = useRef({});
   const inFlight = useRef({});
   const lastAttempt = useRef({});
+  const lastFetch = useRef(0);
 
   useEffect(() => {
     if (!nodes || nodes.length === 0) return;
@@ -23,8 +25,11 @@ export function usePredictions(nodes) {
     let cancelled = false;
 
     const fetchPredictions = async () => {
-      setLoading(true);
       const now = new Date();
+      if (now.getTime() - lastFetch.current < REFRESH_INTERVAL) return;
+      lastFetch.current = now.getTime();
+
+      setLoading(true);
       const currentHour = now.getHours();
       const jsDay = now.getDay();
       const pyDay = jsDay === 0 ? 6 : jsDay - 1;
@@ -113,9 +118,11 @@ export function usePredictions(nodes) {
     };
 
     fetchPredictions();
+    const intervalId = setInterval(fetchPredictions, REFRESH_INTERVAL);
 
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
   }, [nodes]);
 
