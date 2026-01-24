@@ -546,7 +546,7 @@ app.post("/api/readings", async (req, res) => {
       rssi,
       sampling_interval,
       sensor_timestamp: new Date(sensor_timestamp)
-    });\r\n
+    });
     res.status(201).json({ message: "Lectura guardada correctamente" });
 
   } catch (error) {
