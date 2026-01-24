@@ -15,7 +15,6 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const http = require("http");
-const { Server } = require("socket.io");
 const { execFile, exec, spawn } = require('child_process');
 const cron = require('node-cron');
 const path = require('path');
@@ -58,17 +57,6 @@ app.options(/.*/, cors());
    SERVIDOR HTTP
 ======================== */
 const server = http.createServer(app);
-
-/* ========================
-   SOCKET.IO
-======================== */
-const io = new Server(server, {
-  cors: {
-    origin: true,
-    credentials: true
-  },
-  transports: ["websocket", "polling"]
-});
 
 /**
  * Clave secreta para JWT. Se utiliza para firmar y verificar JSON Web Tokens.
@@ -558,22 +546,7 @@ app.post("/api/readings", async (req, res) => {
       rssi,
       sampling_interval,
       sensor_timestamp: new Date(sensor_timestamp)
-    });
-
-    // --- SOCKET.IO: EMISIÓN DE EVENTOS EN TIEMPO REAL ---
-    // Si el nodo tiene un dueño asignado, notificamos a su sala privada
-    if (node.ownerUid) {
-      const room = node.ownerUid.toString();
-      io.to(room).emit('reading:new', {
-        nodeId: cleanNodeId.trim(), // Asegurar trim
-        humidity: humidity_percent,
-        rssi,
-        voltage,
-        sensor_timestamp: newReading.sensor_timestamp
-      });
-      io.to(room).emit('node:online', { nodeId: cleanNodeId });
-    }
-
+    });\r\n
     res.status(201).json({ message: "Lectura guardada correctamente" });
 
   } catch (error) {
@@ -999,4 +972,5 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor backend corriendo en el puerto ${PORT}`);
 });
+
 
