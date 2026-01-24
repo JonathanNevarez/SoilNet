@@ -18,6 +18,7 @@ export function usePredictions(nodes) {
   const inFlight = useRef({});
   const lastAttempt = useRef({});
   const lastFetch = useRef(0);
+  const lastSignature = useRef({});
 
   useEffect(() => {
     if (!nodes || nodes.length === 0) return;
@@ -43,6 +44,20 @@ export function usePredictions(nodes) {
           const nodeId = node.nodeId;
           const cached = cache.current[nodeId];
           const last = lastAttempt.current[nodeId];
+          const reading = node.lastReading;
+          const signature = [
+            reading.humidity_percent,
+            reading.raw_value,
+            reading.rssi,
+            reading.voltage,
+            reading.sampling_interval,
+            reading.sensor_timestamp
+          ].join("|");
+
+          if (lastSignature.current[nodeId] === signature && cached?.data) {
+            newPredictions.push(cached.data);
+            continue;
+          }
 
           // Cache
           if (cached && (now.getTime() - cached.timestamp < CACHE_DURATION)) {
@@ -64,11 +79,11 @@ export function usePredictions(nodes) {
           lastAttempt.current[nodeId] = now.getTime();
 
           const payload = {
-            humidity_percent: node.lastReading.humidity_percent,
-            raw_value: node.lastReading.raw_value,
-            rssi: node.lastReading.rssi,
-            voltage: node.lastReading.voltage,
-            sampling_interval: node.lastReading.sampling_interval,
+            humidity_percent: reading.humidity_percent,
+            raw_value: reading.raw_value,
+            rssi: reading.rssi,
+            voltage: reading.voltage,
+            sampling_interval: reading.sampling_interval,
             hour: currentHour,
             day_of_week: pyDay
           };
@@ -82,14 +97,14 @@ export function usePredictions(nodes) {
 
           const interpretation = interpretPrediction(
             predictedValue,
-            node.lastReading.humidity_percent,
+            reading.humidity_percent,
             node.soil_type
           );
 
           const predictionData = {
             nodeId: node.nodeId,
             nodeName: node.name,
-            currentHumidity: node.lastReading.humidity_percent,
+            currentHumidity: reading.humidity_percent,
             predictedHumidity: predictedValue,
             ...interpretation
           };
@@ -98,6 +113,7 @@ export function usePredictions(nodes) {
             data: predictionData,
             timestamp: now.getTime()
           };
+          lastSignature.current[nodeId] = signature;
 
           newPredictions.push(predictionData);
         } catch (err) {
