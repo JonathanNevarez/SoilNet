@@ -874,7 +874,7 @@ app.post("/api/predict", async (req, res) => {
       let stderr = "";
       let finished = false;
 
-      const timeoutMs = 15000;
+      const timeoutMs = 60000;
       const killTimer = setTimeout(() => {
         if (finished) return;
         finished = true;

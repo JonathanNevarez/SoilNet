@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { predictNodeHumidity } from '../services/predictionService';
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+const RETRY_COOLDOWN = 60 * 1000; // 1 minuto
 
 const SOIL_THRESHOLDS = {
   SANDY: { dry: 10, medium_max: 20, optimal_max: 30, excess: 30 },
@@ -13,6 +14,8 @@ export function usePredictions(nodes) {
   const [predictions, setPredictions] = useState([]);
   const [loading, setLoading] = useState(false);
   const cache = useRef({});
+  const inFlight = useRef({});
+  const lastAttempt = useRef({});
 
   useEffect(() => {
     if (!nodes || nodes.length === 0) return;
@@ -34,12 +37,26 @@ export function usePredictions(nodes) {
 
           const nodeId = node.nodeId;
           const cached = cache.current[nodeId];
+          const last = lastAttempt.current[nodeId];
 
           // Cache
           if (cached && (now.getTime() - cached.timestamp < CACHE_DURATION)) {
             newPredictions.push(cached.data);
             continue;
           }
+
+          if (inFlight.current[nodeId]) {
+            if (cached && cached.data) newPredictions.push(cached.data);
+            continue;
+          }
+
+          if (last && (now.getTime() - last < RETRY_COOLDOWN)) {
+            if (cached && cached.data) newPredictions.push(cached.data);
+            continue;
+          }
+
+          inFlight.current[nodeId] = true;
+          lastAttempt.current[nodeId] = now.getTime();
 
           const payload = {
             humidity_percent: node.lastReading.humidity_percent,
@@ -54,7 +71,7 @@ export function usePredictions(nodes) {
           const predictedValue = await predictNodeHumidity(payload);
 
           if (typeof predictedValue !== "number" || isNaN(predictedValue)) {
-            console.warn("Predicción inválida para nodo", nodeId);
+            console.warn("Prediccion invalida para nodo", nodeId);
             continue;
           }
 
@@ -80,7 +97,9 @@ export function usePredictions(nodes) {
           newPredictions.push(predictionData);
         } catch (err) {
           console.error(`Error prediciendo nodo ${node.nodeId}:`, err);
-          continue; // ← clave: no rompe el render
+          continue; // clave: no rompe el render
+        } finally {
+          inFlight.current[node.nodeId] = false;
         }
       }
 
@@ -108,7 +127,7 @@ function interpretPrediction(predicted, current, soilType = 'LOAM') {
   const t = SOIL_THRESHOLDS[soilType] || SOIL_THRESHOLDS.LOAM;
 
   if (predicted < t.dry) {
-    return { message: "Sequía en próximas horas", action: "REGAR", type: "danger", trend };
+    return { message: "Sequia en proximas horas", action: "REGAR", type: "danger", trend };
   } else if (predicted < t.medium_max) {
     return { message: "Nivel bajo proyectado", action: "VIGILAR", type: "warning", trend };
   } else if (predicted > t.optimal_max) {
