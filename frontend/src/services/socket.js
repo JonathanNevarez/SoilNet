@@ -13,9 +13,9 @@ export const initiateSocketConnection = (token) => {
 
   socket = io(API_URL, {
     auth: { token },
-    transports: ["polling", "websocket"],
+    transports: ["polling"],
     withCredentials: true,
-    timeout: 20000
+    timeout: 60000
   });
 
   socket.on("connect", () => {
