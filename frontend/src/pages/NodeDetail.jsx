@@ -15,8 +15,6 @@ import {
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useNodeDetailRealtime } from "../hooks/useNodeDetailRealtime";
-import { usePredictions } from "../hooks/usePredictions"; // Importar hook de predicciones
-import PredictionStrip from "../components/home/PredictionStrip"; // Reutilizar componente visual
 import { computeNodeAlerts } from "../utils/nodeAlerts";
 import { getSoilStatus, getSignalStatus, getBatteryStatus, getRecommendedAction } from "../utils/nodeLogic";
 import SoilNetLogo from "../assets/SoilNet.svg";
@@ -24,16 +22,6 @@ import SoilNetLogo from "../assets/SoilNet.svg";
 export default function NodeDetail() {
   const { nodeId } = useParams();
   const { node, lastReading, history, range, loading, loadHistory } = useNodeDetailRealtime(decodeURIComponent(nodeId));
-
-  // Obtener predicción específica para este nodo
-  // El hook espera un array, así que pasamos [node] si existe
-  // FIX: Combinamos node y lastReading porque usePredictions espera encontrar node.lastReading
-  const predictionNodes = useMemo(() => {
-    if (!node || !lastReading) return [];
-    return [{ ...node, lastReading }];
-  }, [node, lastReading]);
-  
-  const { predictions, loading: loadingPredictions } = usePredictions(predictionNodes);
 
   // Date for header
   const today = new Date().toLocaleDateString("es-EC", {
@@ -59,7 +47,7 @@ export default function NodeDetail() {
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 max-w-sm">
           <Sprout size={48} className="text-slate-300 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-slate-800 mb-2">Nodo no encontrado</h2>
-          <p className="text-slate-500 mb-6">No pudimos localizar la información de este dispositivo.</p>
+          <p className="text-slate-500 mb-6">No pudimos localizar la informaciÃ³n de este dispositivo.</p>
           <Link to="/home" className="inline-flex items-center justify-center px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition">
             Volver al inicio
           </Link>
@@ -186,10 +174,7 @@ export default function NodeDetail() {
               </div>
            </div>
 
-           {/* Sección de Predicción IA (Nueva) */}
-           <div className="mt-4"><PredictionStrip predictions={predictions} loading={loadingPredictions} /></div>
-
-           {/* Sección Predictiva (UI Only) */}
+           {/* SecciÃ³n Predictiva (UI Only) */}
            {online && humidity !== null && (
              <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -206,7 +191,7 @@ export default function NodeDetail() {
                    </div>
                 </div>
                 <div className="text-right">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Última lectura</p>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ãšltima lectura</p>
                    <p className="text-xs font-medium text-slate-600">
                      {lastTime ? new Date(lastTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--'}
                    </p>
@@ -215,7 +200,7 @@ export default function NodeDetail() {
            )}
         </div>
 
-        {/* Acción Recomendada */}
+        {/* AcciÃ³n Recomendada */}
         <div className={`rounded-2xl p-5 border shadow-sm flex items-start gap-4 transition-all ${
             action.color.includes('red') ? 'bg-red-50 border-red-100' : 
             action.color.includes('green') ? 'bg-emerald-50 border-emerald-100' : 
@@ -246,7 +231,7 @@ export default function NodeDetail() {
            </div>
         </div>
 
-        {/* Gráfico Histórico */}
+        {/* GrÃ¡fico HistÃ³rico */}
         <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
            <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-slate-700 text-sm uppercase tracking-wider flex items-center gap-2">
@@ -315,11 +300,11 @@ export default function NodeDetail() {
            </div>
         </div>
 
-        {/* Métricas Técnicas */}
+        {/* MÃ©tricas TÃ©cnicas */}
         <div className="grid grid-cols-2 gap-4">
            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-28">
               <div className="flex items-center gap-2 text-slate-400">
-                 <Radio size={16} /> <span className="text-[10px] font-bold uppercase tracking-wider">Señal</span>
+                 <Radio size={16} /> <span className="text-[10px] font-bold uppercase tracking-wider">SeÃ±al</span>
               </div>
               <div>
                  <p className="text-2xl font-black text-slate-700 tracking-tight">{rssi ?? "--"}<span className="text-xs font-bold text-slate-400 ml-1">dBm</span></p>
@@ -329,7 +314,7 @@ export default function NodeDetail() {
            
            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between h-28">
               <div className="flex items-center gap-2 text-slate-400">
-                 <BatteryFull size={16} /> <span className="text-[10px] font-bold uppercase tracking-wider">Batería</span>
+                 <BatteryFull size={16} /> <span className="text-[10px] font-bold uppercase tracking-wider">BaterÃ­a</span>
               </div>
               <div>
                  <p className="text-2xl font-black text-slate-700 tracking-tight">{voltage ?? "--"}<span className="text-xs font-bold text-slate-400 ml-1">V</span></p>

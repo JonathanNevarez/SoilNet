@@ -2,14 +2,12 @@ import { useMemo, useState, useEffect } from "react";
 import InlineLoader from "../components/ui/InlineLoader";
 import { getSoilStatus } from "../utils/nodeLogic";
 import { useNodesRealtime } from "../hooks/useNodesRealtime";
-import { usePredictions } from "../hooks/usePredictions"; // NUEVO
 
 // Componentes de la nueva arquitectura
 import DecisionHero from "../components/home/DecisionHero";
 import PriorityZones from "../components/home/PriorityZones";
 import NodeGrid from "../components/home/NodeGrid";
 import InsightStrip from "../components/home/InsightStrip";
-import PredictionStrip from "../components/home/PredictionStrip"; // NUEVO
 
 // 👇 NUEVO: Import de tu logo
 import SoilNetLogo from "../assets/SoilNet.svg";
@@ -32,8 +30,6 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Hook de predicciones (consume API ML)
-  const { predictions, loading: loadingPredictions } = usePredictions(nodes);
 
   // Fecha formateada
   const today = new Date().toLocaleDateString("es-EC", {
@@ -152,7 +148,6 @@ export default function Home() {
         />
 
         {/* Módulo de Predicciones (Ubicación solicitada) */}
-        <PredictionStrip predictions={predictions} loading={loadingPredictions} />
 
         <InsightStrip insights={dashboardData.insights} />
 
