@@ -841,6 +841,10 @@ app.post("/api/predict", async (req, res) => {
       return res.status(400).json({ error: "Faltan datos para realizar la predicción" });
     }
 
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const startedAt = Date.now();
+    console.log(`[predict] start ${requestId} ip=${req.ip}`);
+
     const scriptPath = path.join(__dirname, "ml", "server.py");
 
     if (!fs.existsSync(scriptPath)) {
@@ -848,9 +852,7 @@ app.post("/api/predict", async (req, res) => {
       return res.status(500).json({ error: "Motor de predicción no disponible" });
     }
 
-    const pythonCmd = process.platform === "win32" ? "python" : "python3";
-
-    const py = spawn(pythonCmd, [
+    const args = [
       scriptPath,
       String(humidity_percent),
       String(raw_value),
@@ -859,33 +861,62 @@ app.post("/api/predict", async (req, res) => {
       String(sampling_interval),
       String(hour),
       String(day_of_week)
-    ]);
+    ];
 
-    let stdout = "";
-    let stderr = "";
+    const commandsToTry = process.platform === "win32" ? ["python"] : ["python3", "python"];
 
-    py.stdout.on("data", d => stdout += d.toString());
-    py.stderr.on("data", d => stderr += d.toString());
+    const runPython = (cmdIndex) => {
+      const cmd = commandsToTry[cmdIndex];
+      console.log(`[predict] ${requestId} spawn ${cmd}`);
+      const py = spawn(cmd, args);
 
-    py.on("error", err => {
-      console.error("Python spawn error:", err);
-      return res.status(500).json({ error: "Python no disponible en el servidor" });
-    });
+      let stdout = "";
+      let stderr = "";
+      let finished = false;
 
-    py.on("close", code => {
-      if (code !== 0) {
-        console.error("Python error:", stderr);
-        return res.status(500).json({ error: "Error ejecutando modelo predictivo" });
-      }
+      const timeoutMs = 15000;
+      const killTimer = setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        try { py.kill("SIGKILL"); } catch (e) { /* noop */ }
+        console.error(`[predict] ${requestId} timeout ejecutando modelo`);
+        return res.status(504).json({ error: "Tiempo de espera excedido en prediccion" });
+      }, timeoutMs);
 
-      try {
-        const parsed = JSON.parse(stdout.trim());
-        return res.json(parsed);
-      } catch (err) {
-        console.error("JSON inválido:", stdout);
-        return res.status(500).json({ error: "Respuesta inválida del modelo" });
-      }
-    });
+      py.stdout.on("data", d => stdout += d.toString());
+      py.stderr.on("data", d => stderr += d.toString());
+
+      py.on("error", err => {
+        clearTimeout(killTimer);
+        if (err && err.code === "ENOENT" && cmdIndex + 1 < commandsToTry.length) {
+          return runPython(cmdIndex + 1);
+        }
+        console.error(`[predict] ${requestId} spawn error:`, err);
+        return res.status(500).json({ error: "Python no disponible en el servidor" });
+      });
+
+      py.on("close", code => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(killTimer);
+
+        if (code !== 0) {
+          console.error(`[predict] ${requestId} python error:`, stderr);
+          return res.status(500).json({ error: "Error ejecutando modelo predictivo" });
+        }
+
+        try {
+          const parsed = JSON.parse(stdout.trim());
+          console.log(`[predict] ${requestId} ok ms=${Date.now() - startedAt}`);
+          return res.json(parsed);
+        } catch (err) {
+          console.error(`[predict] ${requestId} json invalido:`, stdout);
+          return res.status(500).json({ error: "Respuesta invalida del modelo" });
+        }
+      });
+    };
+
+    runPython(0);
   } catch (err) {
     console.error("Predict fatal:", err);
     return res.status(500).json({ error: "Error interno inesperado" });
@@ -968,3 +999,4 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor backend corriendo en el puerto ${PORT}`);
 });
+
